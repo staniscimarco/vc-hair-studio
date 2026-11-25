@@ -31,7 +31,10 @@ export default function AdminHome() {
   }, []);
   return (
     <section>
-      <h1 className="font-display text-5xl text-cocoa">Panoramica</h1>
+      <header className="app-hero">
+        <p className="eyebrow">Agenda</p>
+        <h1 className="font-display text-5xl text-cocoa">Oggi in salone</h1>
+      </header>
       {error ? <p className="mt-4">{error}</p> : null}
       {!stats && !error ? <div className="mt-6 h-40 animate-pulse rounded-3xl bg-blush-soft" /> : null}
       {stats ? (

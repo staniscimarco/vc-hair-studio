@@ -69,8 +69,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <section className="mx-auto grid max-w-xl gap-8 px-4 py-8">
-      <h1 className="font-display text-5xl text-cocoa">Profilo personale</h1>
+    <section className="app-screen grid gap-5">
+      <header className="app-hero">
+        <h1 className="font-display text-5xl text-cocoa">Profilo</h1>
+      </header>
       <form action={save} className="grid gap-3 rounded-3xl bg-white p-5 shadow-[var(--shadow)]">
         <label className="grid gap-1 text-sm">Nome<input name="nome" defaultValue={profile.nome} key={profile.nome} className="rounded-2xl border border-line px-3 py-3" /></label>
         <label className="grid gap-1 text-sm">Cognome<input name="cognome" defaultValue={profile.cognome} key={profile.cognome} className="rounded-2xl border border-line px-3 py-3" /></label>
@@ -83,6 +85,8 @@ export default function ProfilePage() {
         <button className="rounded-full border border-cocoa px-4 py-3" type="submit">Aggiorna parola d&apos;ordine</button>
       </form>
       <div className="flex flex-wrap gap-3 text-sm">
+        <a className="underline" href="/privacy">Informativa sulla privacy</a>
+        <a className="underline" href="/condizioni">Condizioni di prenotazione</a>
         <a className="underline" href="/api/profilo/esporta">Esporta i miei dati</a>
         <button className="underline" type="button" onClick={() => void requestDeletion()}>Richiedi la cancellazione dell&apos;account</button>
         <button

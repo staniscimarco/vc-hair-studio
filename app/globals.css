@@ -33,6 +33,8 @@
 
 html { scroll-behavior: smooth; }
 
+main { padding-bottom: calc(108px + env(safe-area-inset-bottom)); }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -62,6 +64,250 @@ a { color: inherit; }
   z-index: 50;
 }
 .skip-link:focus { top: 1rem; }
+
+.app-screen {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: 0 16px 12px;
+}
+
+.app-hero {
+  margin: 0 -16px 20px;
+  padding: calc(18px + env(safe-area-inset-top)) 20px 24px;
+  border-radius: 0 0 36px 36px;
+  background:
+    radial-gradient(420px 180px at 100% 0%, rgba(255, 255, 255, 0.7), transparent 60%),
+    linear-gradient(165deg, #fff 0%, #fff8f4 28%, #f8e8e8 68%, #e8b4b8 100%);
+}
+
+.eyebrow {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+.section-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 10px;
+}
+
+.section-label span,
+.field-caption {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+.date-strip,
+.time-grid {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.date-strip::-webkit-scrollbar,
+.time-grid::-webkit-scrollbar { display: none; }
+
+.date-chip,
+.time-chip,
+.service-card,
+.cta,
+.sheet-panel,
+.tabbar,
+.fab {
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.date-chip {
+  scroll-snap-align: start;
+  flex: 0 0 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 22px;
+  padding: 12px 0;
+  background: white;
+  color: var(--cocoa);
+  box-shadow: 0 8px 24px rgba(105, 66, 60, 0.08);
+  text-decoration: none;
+}
+
+.date-chip strong { font-size: 18px; }
+.date-chip small { font-size: 11px; text-transform: capitalize; }
+.date-chip.is-on,
+.time-chip.is-on {
+  background: var(--cocoa);
+  color: var(--cream);
+}
+.date-chip.has-slot { box-shadow: inset 0 -3px 0 var(--rose); }
+
+.time-grid { flex-wrap: wrap; overflow: visible; }
+.time-chip {
+  border: 0;
+  border-radius: 16px;
+  background: white;
+  color: var(--ink);
+  min-width: 84px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 20px rgba(105, 66, 60, 0.06);
+}
+
+.service-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 28px;
+  background: white;
+  padding: 16px;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 12px 30px rgba(105, 66, 60, 0.08);
+}
+
+.service-card.is-on { outline: 2px solid var(--rose); }
+.service-card:active,
+.date-chip:active,
+.time-chip:active,
+.cta:active { transform: scale(0.98); }
+
+.cta,
+.fab {
+  border: 0;
+  background: linear-gradient(180deg, #7d524a, var(--cocoa));
+  color: var(--cream);
+  border-radius: 999px;
+  box-shadow: 0 12px 24px rgba(105, 66, 60, 0.25);
+}
+
+.cta { display: flex; width: 100%; justify-content: center; padding: 16px 20px; margin-top: 18px; text-decoration: none; }
+
+.tabbar {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: grid;
+  width: min(460px, calc(100% - 20px));
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 30px;
+  background: rgba(255, 248, 244, 0.92);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 40px rgba(48, 38, 38, 0.16);
+}
+
+.tabbar a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 24px;
+  padding: 8px 0 6px;
+  color: var(--cocoa);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.tabbar a[aria-current="page"] {
+  background: var(--cocoa);
+  color: var(--cream);
+}
+
+.fab {
+  position: fixed;
+  z-index: 41;
+  right: max(18px, calc(50% - 250px));
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+}
+
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(48, 38, 38, 0.35);
+}
+
+.sheet-panel {
+  position: fixed;
+  z-index: 51;
+  left: 50%;
+  bottom: 0;
+  width: min(560px, 100%);
+  transform: translateX(-50%);
+  border-radius: 28px 28px 0 0;
+  background: #fff8f4;
+  padding: 12px 18px calc(22px + env(safe-area-inset-bottom));
+}
+
+.sheet-handle {
+  width: 42px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 99px;
+  background: #e8b4b8;
+}
+
+main input:not([type="checkbox"]):not([type="radio"]),
+main select,
+main textarea {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: white;
+  padding: 14px 16px;
+  font-size: 16px;
+  box-shadow: 0 8px 20px rgba(105, 66, 60, 0.05);
+}
+
+main label { color: var(--cocoa); font-weight: 600; }
+
+.salon-agenda .fc {
+  --fc-border-color: transparent;
+  --fc-today-bg-color: #f8e8e8;
+  --fc-button-bg-color: #fff;
+  --fc-button-text-color: #69423c;
+  --fc-button-border-color: transparent;
+  --fc-button-hover-bg-color: #f8e8e8;
+  --fc-button-hover-border-color: transparent;
+  --fc-button-active-bg-color: #69423c;
+  --fc-button-active-border-color: #69423c;
+  --fc-button-active-text-color: #fff8f4;
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: #fff8f4;
+  font-family: inherit;
+}
+.salon-agenda .fc-theme-standard td,
+.salon-agenda .fc-theme-standard th,
+.salon-agenda .fc-scrollgrid { border: none; }
+.salon-agenda .fc-timegrid-slot { height: 2.75rem; }
+.salon-agenda .fc-event { border-radius: 12px; border: none; }
+.salon-agenda .fc-toolbar-title { font-family: var(--font-display), Georgia, serif; color: var(--cocoa); font-size: 1.6rem; }
+.salon-agenda .fc-col-header-cell-cushion,
+.salon-agenda .fc-timegrid-slot-label-cushion { color: var(--cocoa); text-decoration: none; }
+
+@media (min-width: 900px) {
+  .booking-layout { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 28px; align-items: start; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

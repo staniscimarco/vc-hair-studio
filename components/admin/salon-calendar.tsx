@@ -37,6 +37,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
   const [events, setEvents] = useState<object[]>([]);
   const [mobile, setMobile] = useState(false);
   const [selected, setSelected] = useState<Appointment | null>(null);
+  const [draft, setDraft] = useState<{ start: string; end: string } | null>(null);
   const router = useRouter();
 
   async function load(from: string, to: string) {
@@ -95,7 +96,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
   }
 
   return (
-    <div className="rounded-3xl bg-white p-3 shadow-[var(--shadow)]">
+    <div className="salon-agenda rounded-[28px] bg-white p-3 shadow-[var(--shadow)]">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
         locale={itLocale}
@@ -118,18 +119,23 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
         eventDrop={(info) => void move(info)}
         eventResize={(info) => void move(info as unknown as EventDropArg)}
         eventClick={(info: EventClickArg) => setSelected(info.event.extendedProps as Appointment)}
-        select={async (info) => {
-          const action = window.prompt("Scrivi 1 per inserire un appuntamento, 2 per bloccare la disponibilità.");
-          if (action === "2") {
-            router.push(`/admin/disponibilita?inizio=${encodeURIComponent(info.startStr)}&fine=${encodeURIComponent(info.endStr)}`);
-          }
-          if (action === "1") {
-            router.push(`/admin/appuntamenti?inizio=${encodeURIComponent(info.startStr)}`);
-          }
-        }}
+        select={(info) => setDraft({ start: info.startStr, end: info.endStr })}
       />
+      {draft ? (
+        <>
+          <button className="sheet-scrim" type="button" aria-label="Chiudi" onClick={() => setDraft(null)} />
+          <div className="sheet-panel" role="dialog" aria-label="Fascia libera">
+            <div className="sheet-handle" />
+            <p className="field-caption">Fascia libera</p>
+            <div className="mt-3 grid gap-2">
+              <button className="service-card" type="button" onClick={() => router.push(`/admin/appuntamenti?inizio=${encodeURIComponent(draft.start)}`)}>Inserisci appuntamento</button>
+              <button className="service-card" type="button" onClick={() => router.push(`/admin/disponibilita?inizio=${encodeURIComponent(draft.start)}&fine=${encodeURIComponent(draft.end)}`)}>Blocca disponibilità</button>
+            </div>
+          </div>
+        </>
+      ) : null}
       {selected?.id ? (
-        <div className="mt-4 rounded-2xl bg-cream p-4">
+        <div className="mt-4 rounded-[28px] bg-cream p-4">
           <p className="font-display text-2xl">Dettaglio</p>
           <p>Codice {selected.code} · {selected.status}</p>
           <div className="mt-3 flex flex-wrap gap-2">

@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { formatDate, formatDuration, formatPrice, formatTime } from "@/lib/format";
 
@@ -19,19 +20,17 @@ type State = {
   prenotazioniAttive: boolean;
   configurato: boolean;
   servizi: Service[];
-  messaggio?: string;
 };
 
 const DRAFT = "vc-bozza-prenotazione";
-const steps = ["Trattamento", "Giorno", "Orario", "Riepilogo"] as const;
 
 export function BookingWizard() {
   const reduce = useReducedMotion();
   const router = useRouter();
+  const params = useSearchParams();
   const [state, setState] = useState<State | null>(null);
-  const [step, setStep] = useState(0);
   const [serviceId, setServiceId] = useState<string | null>(null);
-  const [month, setMonth] = useState(() => "");
+  const [month, setMonth] = useState("");
   const [days, setDays] = useState<string[]>([]);
   const [day, setDay] = useState<string | null>(null);
   const [slots, setSlots] = useState<{ inizio: string; etichetta: string }[]>([]);
@@ -39,27 +38,35 @@ export function BookingWizard() {
   const [session, setSession] = useState(false);
   const [done, setDone] = useState<{ codice: string; token: string; inizio: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [loadedDay, setLoadedDay] = useState<string | null>(null);
 
   const service = state?.servizi.find((item) => item.id === serviceId) ?? null;
+  const horizon = useMemo(() => nextDays(21), []);
 
   useEffect(() => {
     const now = new Date();
-    const monthValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    setMonth(monthValue);
+    setMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
     const raw = sessionStorage.getItem(DRAFT);
     if (raw) {
-      const draft = JSON.parse(raw) as { serviceId?: string; day?: string; slot?: string; step?: number };
+      const draft = JSON.parse(raw) as { serviceId?: string; day?: string; slot?: string };
       if (draft.serviceId) setServiceId(draft.serviceId);
-      if (draft.day) setDay(draft.day);
+      if (draft.day) {
+        setDay(draft.day);
+        setMonth(draft.day.slice(0, 7));
+      }
       if (draft.slot) setSlot(draft.slot);
-      if (typeof draft.step === "number") setStep(draft.step);
     }
-    void fetch("/api/stato")
-      .then((response) => response.json())
-      .then(setState)
-      .catch(() => setState({ configurato: false, prenotazioniAttive: false, servizi: [] }));
+    const servizio = params.get("servizio");
+    const giorno = params.get("giorno");
+    if (servizio) setServiceId(servizio);
+    if (giorno) {
+      setDay(giorno);
+      setMonth(giorno.slice(0, 7));
+    }
+    void fetch("/api/stato").then((response) => response.json()).then(setState).catch(() => setState({ configurato: false, prenotazioniAttive: false, servizi: [] }));
     void fetch("/api/sessione").then((response) => response.json()).then((body) => setSession(Boolean(body.autenticato)));
-  }, []);
+  }, [params]);
 
   useEffect(() => {
     if (!serviceId || !month) return;
@@ -70,22 +77,25 @@ export function BookingWizard() {
 
   useEffect(() => {
     if (!serviceId || !day) return;
-    void fetch(`/api/disponibilita?servizio=${serviceId}&giorno=${day}`)
+    setLoadedDay(null);
+    const requested = day;
+    void fetch(`/api/disponibilita?servizio=${serviceId}&giorno=${requested}`)
       .then((response) => response.json())
-      .then((body) => setSlots(body.orari ?? []));
+      .then((body) => {
+        setSlots(body.orari ?? []);
+        setLoadedDay(requested);
+      });
   }, [serviceId, day]);
 
-  function remember(nextStep = step) {
-    sessionStorage.setItem(DRAFT, JSON.stringify({ serviceId, day, slot, step: nextStep }));
+  function remember(nextSlot = slot) {
+    sessionStorage.setItem(DRAFT, JSON.stringify({ serviceId, day, slot: nextSlot }));
   }
-
-  const calendar = useMemo(() => buildMonth(month, days, day), [month, days, day]);
 
   async function confirm() {
     if (!service || !slot) return;
     if (!session) {
-      remember(3);
-      router.push("/accesso?prossimo=/");
+      remember(slot);
+      router.push("/accesso?prossimo=/prenota");
       return;
     }
     setBusy(true);
@@ -101,7 +111,7 @@ export function BookingWizard() {
     if (!response.ok) {
       toast.error(body.errore || "Non è stato possibile confermare.");
       setSlot(null);
-      setStep(2);
+      setSheet(false);
       return;
     }
     sessionStorage.removeItem(DRAFT);
@@ -112,193 +122,152 @@ export function BookingWizard() {
 
   if (done && service) {
     return (
-      <section className="mx-auto max-w-xl px-4 py-10 text-center">
-        <p className="text-sm uppercase tracking-[0.2em] text-rose">Prenotazione confermata</p>
+      <section className="app-screen text-center">
+        <p className="eyebrow">Prenotazione confermata</p>
         <h1 className="mt-3 font-display text-5xl text-cocoa">Il tuo appuntamento è confermato!</h1>
-        <p className="mt-4 text-lg leading-8">
-          Ti aspettiamo per prenderci cura dei tuoi capelli e regalarti un momento di bellezza.
-        </p>
-        <div className="mt-8 rounded-3xl bg-white p-6 text-left shadow-[var(--shadow)]">
-          <p className="font-display text-3xl">{service.nome}</p>
+        <p className="mt-4 text-lg leading-8">Ti aspettiamo per prenderci cura dei tuoi capelli e regalarti un momento di bellezza.</p>
+        <div className="service-card mt-8 text-left">
+          <p className="font-display text-3xl text-cocoa">{service.nome}</p>
           <p className="mt-2">{formatDate(new Date(done.inizio))} · {formatTime(new Date(done.inizio))}</p>
           <p className="mt-2">Codice {done.codice}</p>
           <p className="mt-4 text-sm">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
-          <a className="mt-6 inline-flex rounded-full bg-cocoa px-5 py-3 text-cream" href={`/api/calendario/${done.token}`}>
-            Aggiungi al calendario
-          </a>
+          <a className="cta" href={`/api/calendario/${done.token}`}>Aggiungi al calendario</a>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="mx-auto grid max-w-5xl gap-8 px-4 py-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <div>
-        <p className="text-sm uppercase tracking-[0.22em] text-rose">VC Hair Studio</p>
-        <h1 className="mt-3 max-w-xl font-display text-5xl leading-tight text-cocoa sm:text-6xl">
-          Concediti un momento tutto per te.
-        </h1>
-        <p className="mt-4 max-w-xl text-lg leading-8">
-          La bellezza dei tuoi capelli inizia da qui. Scegli il trattamento che desideri e prenota il tuo prossimo appuntamento.
-        </p>
-      </div>
-      <div className="rounded-[2rem] bg-white p-5 shadow-[var(--shadow)] sm:p-7">
-        <ol className="mb-6 flex gap-2 text-xs uppercase tracking-wider text-ink/60">
-          {steps.map((label, index) => (
-            <li key={label} className={index === step ? "text-cocoa" : ""}>
-              {label}
-            </li>
-          ))}
-        </ol>
-        {!state ? <div className="h-48 animate-pulse rounded-3xl bg-blush-soft" role="status">Caricamento in corso.</div> : null}
-        {state && !state.configurato ? (
-          <p>Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p>
-        ) : null}
-        {state?.configurato && !state.prenotazioniAttive ? (
-          <p className="mb-4 rounded-2xl bg-blush-soft p-3 text-sm">Le prenotazioni online non sono ancora attive.</p>
-        ) : null}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={reduce ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-          >
-            {step === 0 && state?.configurato ? (
-              <div>
-                <h2 className="font-display text-3xl">Come possiamo prenderci cura dei tuoi capelli?</h2>
-                <div className="mt-4 grid gap-3">
-                  {state.servizi.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setServiceId(item.id);
-                        setDay(null);
-                        setSlot(null);
-                        setStep(1);
-                        remember(1);
-                      }}
-                      className="rounded-3xl border border-line p-4 text-left transition hover:-translate-y-0.5 hover:border-rose hover:bg-blush-soft"
-                      style={{ borderColor: serviceId === item.id ? item.colore : undefined }}
-                    >
-                      <span className="font-display text-2xl">{item.nome}</span>
-                      <span className="mt-1 block text-sm leading-6">{item.descrizione}</span>
-                      <span className="mt-2 block text-sm text-cocoa">
-                        {formatDuration(item.durataMinuti)} · {formatPrice(item.prezzoCentesimi)}
-                      </span>
-                    </button>
-                  ))}
-                  {state.servizi.length === 0 ? <p>Nessun trattamento è al momento prenotabile.</p> : null}
-                </div>
-              </div>
-            ) : null}
-            {step === 1 ? (
-              <div>
-                <h2 className="font-display text-3xl">Scegli il giorno che preferisci</h2>
-                <div className="mt-4 flex items-center justify-between">
-                  <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mese precedente">←</button>
-                  <p className="capitalize">{monthLabel(month)}</p>
-                  <button type="button" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mese successivo">→</button>
-                </div>
-                <div className="mt-3 grid grid-cols-7 gap-1 text-center text-sm">
-                  {["L", "M", "M", "G", "V", "S", "D"].map((label, index) => (
-                    <span key={`${label}-${index}`} className="py-2 text-ink/50">{label}</span>
-                  ))}
-                  {calendar.map((cell) => (
-                    <button
-                      key={cell.key}
-                      type="button"
-                      disabled={!cell.date || !cell.available}
-                      onClick={() => {
-                        if (!cell.date) return;
-                        setDay(cell.date);
-                        setSlot(null);
-                        setStep(2);
-                      }}
-                      className={`rounded-full py-2 ${cell.date === day ? "bg-cocoa text-cream" : ""} ${cell.available ? "hover:bg-blush-soft" : "text-ink/25"}`}
-                    >
-                      {cell.label}
-                    </button>
-                  ))}
-                </div>
-                <button className="mt-4 text-sm underline" type="button" onClick={() => setStep(0)}>Torna ai trattamenti</button>
-              </div>
-            ) : null}
-            {step === 2 ? (
-              <div>
-                <h2 className="font-display text-3xl">Seleziona l&apos;orario più comodo per te</h2>
-                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {slots.map((item) => (
-                    <button
-                      key={item.inizio}
-                      type="button"
-                      onClick={() => {
-                        setSlot(item.inizio);
-                        setStep(3);
-                        remember(3);
-                      }}
-                      className="rounded-full border border-line py-2 hover:border-rose hover:bg-blush-soft"
-                    >
-                      {item.etichetta}
-                    </button>
-                  ))}
-                </div>
-                {slots.length === 0 ? (
-                  <p className="mt-4">Non ci sono orari disponibili per questa giornata. Ti invitiamo a scegliere un&apos;altra data.</p>
-                ) : null}
-                <button className="mt-4 text-sm underline" type="button" onClick={() => setStep(1)}>Cambia giorno</button>
-              </div>
-            ) : null}
-            {step === 3 && service && slot ? (
-              <div>
-                <h2 className="font-display text-3xl">Riepilogo</h2>
-                <p className="mt-3">{service.nome}</p>
-                <p>{formatDate(new Date(slot))} alle {formatTime(new Date(slot))}</p>
-                <p>{formatDuration(service.durataMinuti)}</p>
-                <p>{formatPrice(service.prezzoCentesimi)}</p>
-                <p className="mt-3 text-sm">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
+    <div className="app-screen">
+      <header className="app-hero">
+        <Image src="/brand/vale.png" alt="VC Hair Studio" width={64} height={64} unoptimized />
+        <p className="eyebrow">Prenota</p>
+        <h1 className="mt-2 font-display text-4xl text-cocoa">Prenota il tuo appuntamento</h1>
+      </header>
+
+      {!state ? <div className="h-28 animate-pulse rounded-[28px] bg-white" role="status">Caricamento in corso.</div> : null}
+      {state && !state.configurato ? <p>Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
+      {state?.configurato && !state.prenotazioniAttive ? <p className="rounded-3xl bg-white p-4 text-sm">Le prenotazioni online non sono ancora attive.</p> : null}
+
+      <div className="booking-layout">
+        <section>
+          <div className="section-label">
+            <span className="field-caption">Trattamento</span>
+            <h2 className="font-display text-3xl text-cocoa">Come possiamo prenderci cura dei tuoi capelli?</h2>
+          </div>
+          <div className="grid gap-3">
+            {(state?.servizi ?? []).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`service-card ${serviceId === item.id ? "is-on" : ""}`}
+                onClick={() => {
+                  setServiceId(item.id);
+                  setSlot(null);
+                  setSheet(false);
+                  remember(null);
+                }}
+              >
+                <span className="font-display text-2xl text-cocoa">{item.nome}</span>
+                <span className="mt-1 block text-sm leading-6">{item.descrizione}</span>
+                <span className="mt-3 inline-flex rounded-full px-3 py-1 text-sm text-cocoa" style={{ background: item.colore }}>
+                  {formatDuration(item.durataMinuti)} · {formatPrice(item.prezzoCentesimi)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <div className="section-label">
+            <span className="field-caption">Giorno</span>
+            <p>Scegli il giorno che preferisci</p>
+          </div>
+          <div className="date-strip" role="listbox" aria-label="Giorni disponibili">
+            {horizon.map((item) => (
                 <button
-                  className="mt-6 w-full rounded-full bg-cocoa px-5 py-3 text-cream disabled:opacity-60"
+                  key={item.iso}
                   type="button"
-                  disabled={busy || !state?.prenotazioniAttive}
-                  onClick={() => void confirm()}
+                  className={`date-chip ${day === item.iso ? "is-on" : ""} ${serviceId && days.includes(item.iso) ? "has-slot" : ""}`}
+                  aria-pressed={day === item.iso}
+                  onClick={() => {
+                    setDay(item.iso);
+                    setMonth(item.iso.slice(0, 7));
+                    setSlot(null);
+                    setSheet(false);
+                  }}
                 >
-                  {session ? "Conferma appuntamento" : "Accedi per confermare"}
+                  <small>{item.weekday}</small>
+                  <strong>{item.number}</strong>
                 </button>
-                <button className="mt-3 text-sm underline" type="button" onClick={() => setStep(2)}>Cambia orario</button>
-              </div>
-            ) : null}
-          </motion.div>
-        </AnimatePresence>
+            ))}
+          </div>
+
+          <div className="section-label">
+            <span className="field-caption">Orario</span>
+            <p>Seleziona l&apos;orario più comodo per te</p>
+          </div>
+          {!serviceId || !day ? <p className="text-sm">Scegli il trattamento e il giorno per vedere gli orari.</p> : null}
+          {serviceId && day && loadedDay === day && slots.length === 0 ? (
+            <p>Non ci sono orari disponibili per questa giornata. Ti invitiamo a scegliere un&apos;altra data.</p>
+          ) : null}
+          <div className="time-grid">
+            {slots.map((item) => (
+              <button
+                key={item.inizio}
+                type="button"
+                className={`time-chip ${slot === item.inizio ? "is-on" : ""}`}
+                onClick={() => {
+                  setSlot(item.inizio);
+                  remember(item.inizio);
+                  setSheet(true);
+                }}
+              >
+                {item.etichetta}
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
-    </section>
+
+      <AnimatePresence>
+        {sheet && service && slot ? (
+          <motion.div initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <button className="sheet-scrim" type="button" aria-label="Chiudi riepilogo" onClick={() => setSheet(false)} />
+            <motion.div
+              className="sheet-panel"
+              role="dialog"
+              aria-label="Riepilogo"
+              initial={reduce ? false : { y: 40 }}
+              animate={{ y: 0 }}
+            >
+              <div className="sheet-handle" />
+              <p className="field-caption">Riepilogo</p>
+              <h2 className="font-display text-3xl text-cocoa">{service.nome}</h2>
+              <p className="mt-2">{formatDate(new Date(slot))} alle {formatTime(new Date(slot))}</p>
+              <p>{formatDuration(service.durataMinuti)} · {formatPrice(service.prezzoCentesimi)}</p>
+              <p className="mt-3 text-sm">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
+              <button className="cta" type="button" disabled={busy || !state?.prenotazioniAttive} onClick={() => void confirm()}>
+                {session ? "Conferma appuntamento" : "Accedi per confermare"}
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
-function monthLabel(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  return new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(new Date(year, monthNumber - 1, 1));
-}
-
-function shiftMonth(month: string, delta: number) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const date = new Date(year, monthNumber - 1 + delta, 1);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function buildMonth(month: string, available: string[], selected: string | null) {
-  if (!month) return [];
-  const [year, monthNumber] = month.split("-").map(Number);
-  const first = new Date(Date.UTC(year, monthNumber - 1, 1));
-  const startPad = (first.getUTCDay() + 6) % 7;
-  const days = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-  const cells: { key: string; label: string; date: string | null; available: boolean }[] = [];
-  for (let index = 0; index < startPad; index += 1) cells.push({ key: `e-${index}`, label: "", date: null, available: false });
-  for (let day = 1; day <= days; day += 1) {
-    const date = `${month}-${String(day).padStart(2, "0")}`;
-    cells.push({ key: date, label: String(day), date, available: available.includes(date) || date === selected });
-  }
-  return cells;
+function nextDays(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + index);
+    const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    return {
+      iso,
+      number: String(date.getDate()),
+      weekday: new Intl.DateTimeFormat("it-IT", { weekday: "short" }).format(date).replace(".", ""),
+    };
+  });
 }

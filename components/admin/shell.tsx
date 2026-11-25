@@ -2,38 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Bell, CalendarDays, House, Plus, Settings, Users } from "lucide-react";
 
 const items = [
-  { href: "/admin", label: "Panoramica" },
-  { href: "/admin/calendario", label: "Calendario" },
-  { href: "/admin/appuntamenti", label: "Appuntamenti" },
-  { href: "/admin/clienti", label: "Clienti" },
-  { href: "/admin/servizi", label: "Servizi" },
-  { href: "/admin/disponibilita", label: "Disponibilità" },
-  { href: "/admin/notifiche", label: "Notifiche" },
-  { href: "/admin/impostazioni", label: "Impostazioni" },
+  { href: "/admin", label: "Home", icon: House },
+  { href: "/admin/calendario", label: "Calendario", icon: CalendarDays },
+  { href: "/admin/clienti", label: "Clienti", icon: Users },
+  { href: "/admin/notifiche", label: "Notifiche", icon: Bell },
+  { href: "/admin/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
   return (
-    <div className="mx-auto grid min-h-screen max-w-6xl md:grid-cols-[220px_1fr]">
-      <aside className="hidden border-r border-line p-4 md:block">
-        <p className="font-display text-3xl text-cocoa">Agenda</p>
-        <nav className="mt-6 grid gap-1">
-          {items.map((item) => (
-            <Link key={item.href} href={item.href} className={`rounded-2xl px-3 py-2 ${pathname === item.href ? "bg-cocoa text-cream" : "hover:bg-blush-soft"}`}>
+    <div className="app-screen">
+      {children}
+      <button className="fab" type="button" aria-label="Azioni rapide" onClick={() => setOpen(true)}>
+        <Plus />
+      </button>
+      {open ? (
+        <>
+          <button className="sheet-scrim" type="button" aria-label="Chiudi azioni" onClick={() => setOpen(false)} />
+          <div className="sheet-panel" role="dialog" aria-label="Azioni rapide">
+            <div className="sheet-handle" />
+            <p className="field-caption">Azioni rapide</p>
+            <div className="mt-3 grid gap-2">
+              <Link className="service-card" href="/admin/appuntamenti" onClick={() => setOpen(false)}>Nuovo appuntamento</Link>
+              <Link className="service-card" href="/admin/disponibilita" onClick={() => setOpen(false)}>Blocca disponibilità</Link>
+              <Link className="service-card" href="/admin/servizi" onClick={() => setOpen(false)}>Trattamenti</Link>
+            </div>
+          </div>
+        </>
+      ) : null}
+      <nav className="tabbar" aria-label="Navigazione amministratore">
+        {items.map((item) => {
+          const current = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined}>
+              <Icon size={18} strokeWidth={1.75} />
               {item.label}
             </Link>
-          ))}
-        </nav>
-      </aside>
-      <div className="px-4 py-6 pb-28">{children}</div>
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-white/95 text-center text-xs md:hidden">
-        {items.slice(0, 4).map((item) => (
-          <Link key={item.href} href={item.href} className="px-1 py-3">{item.label}</Link>
-        ))}
-        <Link href="/admin/impostazioni" className="px-1 py-3">Altro</Link>
+          );
+        })}
       </nav>
     </div>
   );

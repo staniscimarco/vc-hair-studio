@@ -1,10 +1,8 @@
-import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
-import { SiteHeader } from "@/components/layout/site-header";
-import { SiteFooter } from "@/components/layout/site-footer";
+import { CustomerTabBar } from "@/components/nav/customer-tab-bar";
 import { InstallHint } from "@/components/pwa/install-hint";
 
 const display = Cormorant_Garamond({
@@ -34,9 +32,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#69423C",
+  themeColor: "#FFF8F4",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -46,13 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#contenuto">
           Vai al contenuto
         </a>
-        <Suspense fallback={<div className="h-20" />}>
-          <SiteHeader />
-        </Suspense>
         <main id="contenuto">{children}</main>
-        <Suspense>
-          <SiteFooter />
-        </Suspense>
+        <CustomerTabBar />
         <InstallHint />
         <Toaster position="top-center" richColors />
       </body>

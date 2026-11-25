@@ -144,7 +144,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   }
 
   return (
-    <section className="mx-auto max-w-md px-4 py-10">
+    <section className="app-screen mx-auto max-w-md">
       <h1 className="font-display text-5xl text-cocoa">
         {mode === "accesso" && "Accedi"}
         {mode === "registrazione" && "Crea il tuo profilo"}

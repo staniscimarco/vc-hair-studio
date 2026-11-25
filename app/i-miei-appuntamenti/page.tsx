@@ -65,11 +65,11 @@ export default function AppointmentsPage() {
   const past = (rows ?? []).filter((row) => clock != null && (new Date(row.starts_at).getTime() < clock || row.status === "cancelled"));
 
   return (
-    <section className="mx-auto max-w-3xl px-4 py-8">
-      <div className="flex items-end justify-between gap-4">
+    <section className="app-screen">
+      <header className="app-hero">
         <h1 className="font-display text-5xl text-cocoa">I miei appuntamenti</h1>
-        <Link className="rounded-full bg-cocoa px-4 py-2 text-sm text-cream" href="/">Prenota</Link>
-      </div>
+        <Link className="cta" href="/prenota">Prenota</Link>
+      </header>
       {error ? <p className="mt-6">{error}</p> : null}
       {!rows ? <div className="mt-6 h-40 animate-pulse rounded-3xl bg-blush-soft" /> : null}
       {rows ? (
