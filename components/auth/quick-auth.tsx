@@ -100,7 +100,7 @@ export function QuickAuth({ next, onDone }: { next: string; onDone: (name: strin
 
       <SocialButtons next={next} label={mode === "accedi" ? "Accedi" : "Registrati"} />
       <p className="note m-0 text-center">
-        Continuando con Google o Apple accetti l&apos;<Link className="font-medium text-primary-strong" href="/privacy">informativa sulla privacy</Link>.
+        Continuando con Google accetti l&apos;<Link className="font-medium text-primary-strong" href="/privacy">informativa sulla privacy</Link>.
       </p>
       <div className="divider">oppure con e-mail</div>
 

@@ -72,7 +72,7 @@ export default function AvailabilityPage() {
   const [reason, setReason] = useState("ferie");
   const [busy, setBusy] = useState(false);
   const [range, setRange] = useState({ from: "", to: "" });
-  const [block, setBlock] = useState({ date: "", from: "13:00", to: "14:00", repeat: "", reason: "pausa", kind: "block", notes: "" });
+  const [block, setBlock] = useState({ date: "", from: "13:00", to: "14:00", repeat: "", reason: "pausa", kind: "block", notes: "", allDay: false });
 
   const today = isoOf(new Date());
 
@@ -114,7 +114,7 @@ export default function AvailabilityPage() {
   const closures = useMemo(() => {
     const map = new Map<string, Exception>();
     for (const item of items) {
-      if (item.kind !== "full_day_closure") continue;
+      if (!isDayOff(item)) continue;
       for (const date of eachIso(item.start_date, item.end_date)) map.set(date, item);
     }
     return map;
@@ -213,7 +213,7 @@ export default function AvailabilityPage() {
       toast.error("Scegli il giorno.");
       return;
     }
-    if (toMinutes(block.to) <= toMinutes(block.from)) {
+    if (!block.allDay && toMinutes(block.to) <= toMinutes(block.from)) {
       toast.error("L'orario di fine deve essere dopo l'inizio.");
       return;
     }
@@ -224,9 +224,9 @@ export default function AvailabilityPage() {
         kind: block.kind,
         startDate: block.date,
         endDate: block.date,
-        allDay: false,
-        startMin: toMinutes(block.from),
-        endMin: toMinutes(block.to),
+        allDay: block.allDay,
+        startMin: block.allDay ? null : toMinutes(block.from),
+        endMin: block.allDay ? null : toMinutes(block.to),
         frequency: block.repeat || null,
         reason: block.reason,
         notes: block.notes,
@@ -237,15 +237,15 @@ export default function AvailabilityPage() {
       toast.error(body.errore);
       return;
     }
-    toast.success(block.kind === "extra_opening" ? "Apertura straordinaria salvata." : "Orario bloccato.");
+    toast.success(block.kind === "extra_opening" ? "Apertura straordinaria salvata." : block.allDay ? "Giornata bloccata: le clienti non potranno sceglierla." : "Orario bloccato.");
     setBlock((current) => ({ ...current, notes: "" }));
     await load();
   }
 
   const grid = monthGrid(cursor.year, cursor.month);
   const monthLabel = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(new Date(cursor.year, cursor.month, 1));
-  const upcoming = items.filter((item) => item.end_date >= today && item.kind !== "full_day_closure");
-  const upcomingClosures = groupClosures(items.filter((item) => item.kind === "full_day_closure" && item.end_date >= today));
+  const upcoming = items.filter((item) => item.end_date >= today && !isDayOff(item));
+  const upcomingClosures = groupClosures(items.filter((item) => isDayOff(item) && item.end_date >= today));
 
   return (
     <section>
@@ -383,7 +383,7 @@ export default function AvailabilityPage() {
               <span className="tile-icon"><Coffee size={20} /></span>
               <div>
                 <h2>Pause e impegni</h2>
-                <p className="note m-0">Blocca solo alcune ore di un giorno, ad esempio la pausa pranzo.</p>
+                <p className="note m-0">Blocca alcune ore (es. la pausa pranzo) o un&apos;intera giornata.</p>
               </div>
             </div>
             <div className="segmented">
@@ -391,7 +391,11 @@ export default function AvailabilityPage() {
               <button type="button" className={block.kind === "extra_opening" ? "is-on" : ""} onClick={() => setBlock({ ...block, kind: "extra_opening" })}>Apri in più</button>
             </div>
             <label className="field">Giorno<input type="date" value={block.date} min={today} onChange={(event) => setBlock({ ...block, date: event.target.value })} /></label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="toggle">
+              <span>Tutto il giorno<small className="block text-xs font-normal text-muted">Le clienti non potranno scegliere questa data</small></span>
+              <input type="checkbox" checked={block.allDay} onChange={(event) => setBlock({ ...block, allDay: event.target.checked })} />
+            </label>
+            <div className={`grid grid-cols-2 gap-3 ${block.allDay ? "hidden" : ""}`}>
               <label className="field">Dalle
                 <select value={block.from} onChange={(event) => setBlock({ ...block, from: event.target.value })}>
                   {TIMES.map((time) => <option key={time} value={time}>{time}</option>)}
@@ -423,7 +427,7 @@ export default function AvailabilityPage() {
             </div>
             <label className="field">Note private<input value={block.notes} placeholder="Visibili solo al salone" onChange={(event) => setBlock({ ...block, notes: event.target.value })} /></label>
             <button className="btn btn-primary btn-block" type="button" onClick={() => void saveBlock()}>
-              {block.kind === "extra_opening" ? "Salva apertura straordinaria" : "Blocca questo orario"}
+              {block.kind === "extra_opening" ? "Salva apertura straordinaria" : block.allDay ? "Blocca tutta la giornata" : "Blocca questo orario"}
             </button>
           </div>
         </div>
@@ -484,6 +488,11 @@ export default function AvailabilityPage() {
       </div>
     </section>
   );
+}
+
+/** Giorno intero non prenotabile: chiusura o blocco di tutta la giornata. */
+function isDayOff(item: Exception) {
+  return item.kind === "full_day_closure" || (item.kind === "block" && item.all_day);
 }
 
 function minutes(value: number) {

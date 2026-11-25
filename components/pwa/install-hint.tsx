@@ -9,7 +9,7 @@ type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoic
 type Platform = "ios" | "android" | "desktop";
 
 const SNOOZE_KEY = "vc-installazione-rimandata";
-const SNOOZE_DAYS = 3;
+const SNOOZE_DAYS = 7;
 /** Evento globale per riaprire il popup da un pulsante (profilo, notifiche). */
 export const SHOW_INSTALL_EVENT = "vc-mostra-installazione";
 
@@ -17,15 +17,20 @@ export function openInstallHint() {
   window.dispatchEvent(new Event(SHOW_INSTALL_EVENT));
 }
 
-function readSnooze() {
+let dismissedThisVisit = false;
+
+/** Letto ogni volta (non solo all'avvio): il browser può rilanciare l'invito a ogni pagina. */
+function isSnoozed() {
+  if (dismissedThisVisit) return true;
   try {
-    return Number(localStorage.getItem(SNOOZE_KEY) ?? 0);
+    return Date.now() - Number(localStorage.getItem(SNOOZE_KEY) ?? 0) < SNOOZE_DAYS * 86_400_000;
   } catch {
-    return 0;
+    return false;
   }
 }
 
 function writeSnooze() {
+  dismissedThisVisit = true;
   try {
     localStorage.setItem(SNOOZE_KEY, String(Date.now()));
   } catch {
@@ -58,12 +63,11 @@ export function InstallHint() {
 
     const current = detectPlatform();
     setPlatform(current);
-    const snoozed = Date.now() - readSnooze() < SNOOZE_DAYS * 86_400_000;
-
     const onPrompt = (event: Event) => {
       event.preventDefault();
       setDeferred(event as BeforeInstallPromptEvent);
-      if (!snoozed) setOpen(true);
+      // Si apre da solo solo su telefono e solo se non è stato rimandato.
+      if (current !== "desktop" && !isSnoozed()) setOpen(true);
     };
     const onInstalled = () => {
       setInstalled(true);
@@ -75,7 +79,7 @@ export function InstallHint() {
     window.addEventListener(SHOW_INSTALL_EVENT, onShow);
 
     // Su telefono il popup compare dopo qualche secondo anche senza il prompt automatico del browser.
-    const timer = !snoozed && current !== "desktop" ? window.setTimeout(() => setOpen(true), 2500) : undefined;
+    const timer = current !== "desktop" && !isSnoozed() ? window.setTimeout(() => !isSnoozed() && setOpen(true), 2500) : undefined;
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);

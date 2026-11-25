@@ -78,21 +78,37 @@ async function applyIfNeeded() {
   await applyExtras();
 }
 
-async function extrasPresent(): Promise<boolean> {
+/** Migrazioni aggiuntive, applicate in ordine e registrate in public.schema_migrations. */
+const EXTRA_MIGRATIONS = ["0002_promozioni_notifiche.sql", "0003_notifiche_anonime.sql"];
+
+async function pendingExtras(): Promise<string[]> {
   const admin = createAdminSupabase();
-  if (!admin) return false;
-  const probe = await admin.from("broadcasts").select("id").limit(1);
-  return !probe.error;
+  if (!admin) return [];
+  const { data, error } = await admin.from("schema_migrations").select("name");
+  if (error) return EXTRA_MIGRATIONS;
+  const done = new Set((data ?? []).map((row) => String(row.name)));
+  return EXTRA_MIGRATIONS.filter((name) => !done.has(name));
 }
 
-/** Migrazioni aggiuntive idempotenti (promozioni, notifiche alle clienti). */
+/** Tutte le migrazioni aggiuntive sono idempotenti: rieseguirle non ha effetti collaterali. */
 async function applyExtras() {
-  if (await extrasPresent()) return;
+  const pending = await pendingExtras();
+  if (!pending.length) return;
   await withDatabase(async (client) => {
     await client.query("select pg_advisory_lock(8042002)");
     try {
-      const sql = readFileSync(join(process.cwd(), "supabase/migrations/0002_promozioni_notifiche.sql"), "utf8");
-      await client.query(sql);
+      await client.query(`
+        create table if not exists public.schema_migrations (
+          name text primary key,
+          applied_at timestamptz not null default now()
+        );
+        alter table public.schema_migrations enable row level security;
+      `);
+      for (const name of pending) {
+        const sql = readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8");
+        await client.query(sql);
+        await client.query("insert into public.schema_migrations (name) values ($1) on conflict do nothing", [name]);
+      }
       await client.query("notify pgrst, 'reload schema'");
     } finally {
       await client.query("select pg_advisory_unlock(8042002)");

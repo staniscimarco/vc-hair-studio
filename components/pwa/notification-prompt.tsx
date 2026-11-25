@@ -34,14 +34,27 @@ export function NotificationPrompt() {
     void fetch("/api/sessione")
       .then((response) => response.json())
       .then((session: { autenticato: boolean; ruolo: "admin" | "customer" | null }) => {
-        if (cancelled || !session.autenticato) return;
-        const current = session.ruolo === "admin" ? "admin" : "customer";
+        if (cancelled) return;
+        // Anche senza accesso: chi installa l'app riceve posti liberi e offerte.
+        const current = session.autenticato && session.ruolo === "admin" ? "admin" : "customer";
         setRole(current);
         if (Notification.permission === "granted") {
+          const key = `vc-push-salvato-${current}-${session.autenticato ? "1" : "0"}`;
+          try {
+            if (sessionStorage.getItem(key)) return;
+            sessionStorage.setItem(key, "1");
+          } catch {
+            // Archiviazione non disponibile: registra comunque.
+          }
           void saveSubscription(current);
           return;
         }
         if (Notification.permission === "denied" || snoozed()) return;
+        // Il popup automatico compare nell'app installata (iPhone e Android); per l'admin anche dal browser.
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as Navigator & { standalone?: boolean }).standalone === true;
+        if (!standalone && current !== "admin") return;
         // Aspetta che lo splash e l'eventuale popup di installazione siano chiusi.
         const tryOpen = () => {
           if (cancelled) return;
@@ -107,7 +120,7 @@ export function NotificationPrompt() {
           <p className="note m-0">
             {role === "admin"
               ? "Attiva le notifiche su questo dispositivo: ti avvisiamo appena una cliente prenota."
-              : "Attiva le notifiche: ti avvisiamo quando il salone conferma e quando si libera un posto per te."}
+              : "Attiva le notifiche: ti avvisiamo quando si libera un posto, delle offerte riservate e, se prenoti, della conferma del salone."}
           </p>
         </div>
         <ul className="install-steps">

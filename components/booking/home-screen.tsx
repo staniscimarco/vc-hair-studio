@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Bell, CalendarCheck, Clock, CreditCard, Heart, Sparkles, Star, Tag, Timer } from "lucide-react";
 import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
-import { ServiceArt, ServiceIcon, shortDuration } from "@/components/ui/service-icon";
+import { ServiceArt, shortDuration } from "@/components/ui/service-icon";
 import { Price, promoFor, type PublicPromo } from "@/components/ui/price";
 
 type Service = {
@@ -28,6 +28,7 @@ export function HomeScreen() {
   const [ready, setReady] = useState<boolean | null>(null);
   const [name, setName] = useState("");
   const [now, setNow] = useState<Date | null>(null);
+  const [openDays, setOpenDays] = useState<string[] | null>(null);
   const days = useMemo(() => nextDays(14), []);
 
   useEffect(() => {
@@ -50,6 +51,21 @@ export function HomeScreen() {
   }, []);
 
   const list = services ?? [];
+
+  // Giorni con almeno un orario libero (sul trattamento più breve): gli altri non sono selezionabili.
+  useEffect(() => {
+    if (!services?.length) return;
+    const shortest = [...services].sort((a, b) => a.durataMinuti - b.durataMinuti)[0];
+    const months = [...new Set(days.map((day) => day.iso.slice(0, 7)))];
+    void Promise.all(
+      months.map((month) =>
+        fetch(`/api/disponibilita?servizio=${shortest.id}&mese=${month}`)
+          .then((response) => response.json())
+          .then((body) => (body.giorni ?? []) as string[])
+          .catch(() => [] as string[]),
+      ),
+    ).then((lists) => setOpenDays(lists.flat()));
+  }, [services, days]);
   const promoEnds = promo ? new Date(`${promo.al}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long" }) : "";
 
   return (
@@ -114,22 +130,26 @@ export function HomeScreen() {
 
       <section aria-labelledby="servizi">
         <SectionHead id="servizi" title="Servizi" subtitle="Come possiamo prenderci cura dei tuoi capelli?" href="/prenota" />
-        {ready === false ? <p className="note mb-3">Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
+        {ready === false ? (
+          <div className="warning-box mb-4">Le prenotazioni online apriranno a breve: intanto scopri i nostri trattamenti.</div>
+        ) : null}
         {services === null ? (
-          <div className="service-dots" aria-hidden>
-            {Array.from({ length: 5 }, (_, index) => (
-              <span key={index} className="skeleton" style={{ flex: "0 0 58px", height: 58, borderRadius: 999 }} />
-            ))}
+          <div className="service-tiles" aria-hidden>
+            {Array.from({ length: 4 }, (_, index) => <span key={index} className="skeleton" style={{ height: 190 }} />)}
           </div>
         ) : (
-          <div className="service-dots">
-            {list.map((service) => (
-              <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="service-dot">
-                <span className="dot-circle">
-                  <ServiceIcon name={service.nome} size={26} />
-                  {promoFor(promo, service.id) ? <span className="dot-badge">-{promo?.sconto}%</span> : null}
+          <div className="service-tiles">
+            {list.map((service, index) => (
+              <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="service-tile">
+                <span className="tile-art">
+                  <ServiceArt name={service.nome} tone={index} compact />
+                  {promoFor(promo, service.id) ? <span className="promo-ribbon">-{promo?.sconto}%</span> : null}
                 </span>
-                <span>{service.nome}</span>
+                <span className="tile-name">{service.nome}</span>
+                <span className="tile-meta">
+                  <span><Clock size={12} /> {shortDuration(service.durataMinuti)}</span>
+                  <Price cents={service.prezzoCentesimi} promo={promo} serviceId={service.id} className="tile-price" />
+                </span>
               </Link>
             ))}
           </div>
@@ -178,12 +198,19 @@ export function HomeScreen() {
       <section aria-labelledby="giorni">
         <SectionHead id="giorni" title="Quando vuoi venire?" subtitle="Tocca un giorno e scopri gli orari liberi" href="/prenota" linkLabel="Calendario" />
         <div className="date-strip">
-          {days.map((day) => (
-            <Link key={day.iso} href={`/prenota?giorno=${day.iso}`} className="date-chip">
-              <small>{day.weekday}</small>
-              <strong>{day.number}</strong>
-            </Link>
-          ))}
+          {days.map((day) =>
+            openDays && !openDays.includes(day.iso) ? (
+              <span key={day.iso} className="date-chip is-off" aria-disabled="true" title="Nessun orario disponibile">
+                <small>{day.weekday}</small>
+                <strong>{day.number}</strong>
+              </span>
+            ) : (
+              <Link key={day.iso} href={`/prenota?giorno=${day.iso}`} className={`date-chip ${openDays ? "has-slot" : ""}`}>
+                <small>{day.weekday}</small>
+                <strong>{day.number}</strong>
+              </Link>
+            ),
+          )}
         </div>
       </section>
 

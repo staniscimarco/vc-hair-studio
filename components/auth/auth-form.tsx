@@ -150,7 +150,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   }
 
   const copy = {
-    accesso: { title: "Accedi", lead: "Bentornata! Accedi con Google, Apple o e-mail per prenotare e gestire i tuoi appuntamenti." },
+    accesso: { title: "Accedi", lead: "Bentornata! Accedi con Google o con la tua e-mail per prenotare e gestire i tuoi appuntamenti." },
     registrazione: { title: "Crea il tuo profilo", lead: "Pochi dati e potrai prenotare il tuo prossimo appuntamento in un minuto." },
     recupero: { title: "Recupera l'accesso", lead: "Inserisci la tua e-mail: ti invieremo un messaggio per scegliere una nuova password." },
     "nuova-password": { title: "Nuova password", lead: "Scegli una password di almeno 8 caratteri." },
@@ -182,7 +182,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
             <div className="mt-6 grid gap-3">
               <SocialButtons next={next} label={mode === "accesso" ? "Accedi" : "Registrati"} />
               <p className="note m-0 text-center lg:text-left">
-                Continuando con Google o Apple accetti l&apos;<Link className="font-medium text-primary-strong" href="/privacy">informativa sulla privacy</Link>.
+                Continuando con Google accetti l&apos;<Link className="font-medium text-primary-strong" href="/privacy">informativa sulla privacy</Link>.
               </p>
               <div className="divider">oppure con e-mail</div>
             </div>

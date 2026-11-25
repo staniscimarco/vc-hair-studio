@@ -40,8 +40,8 @@ export function BookingWizard() {
   const [state, setState] = useState<State | null>(null);
   const [step, setStep] = useState<Step>(0);
   const [serviceId, setServiceId] = useState<string | null>(null);
-  const [month, setMonth] = useState("");
   const [days, setDays] = useState<string[]>([]);
+  const [daysReady, setDaysReady] = useState(false);
   const [day, setDay] = useState<string | null>(null);
   const [slots, setSlots] = useState<{ inizio: string; etichetta: string }[]>([]);
   const [slot, setSlot] = useState<string | null>(null);
@@ -56,8 +56,6 @@ export function BookingWizard() {
   const horizon = useMemo(() => nextDays(28), []);
 
   useEffect(() => {
-    const now = new Date();
-    setMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
     let target: Step = 0;
     const raw = sessionStorage.getItem(DRAFT);
     if (raw) {
@@ -68,7 +66,6 @@ export function BookingWizard() {
       }
       if (draft.day) {
         setDay(draft.day);
-        setMonth(draft.day.slice(0, 7));
       }
       if (draft.slot && draft.serviceId) {
         setSlot(draft.slot);
@@ -83,7 +80,6 @@ export function BookingWizard() {
     }
     if (giorno) {
       setDay(giorno);
-      setMonth(giorno.slice(0, 7));
     }
     setRestored(target);
     void fetch("/api/stato").then((response) => response.json()).then(setState).catch(() => setState({ configurato: false, prenotazioniAttive: false, servizi: [] }));
@@ -93,19 +89,38 @@ export function BookingWizard() {
       .catch(() => setSession({ ok: false, nome: "" }));
   }, [params]);
 
-  // Riprende la prenotazione dal punto giusto (anche al ritorno da Google/Apple o dalla conferma e-mail).
+  // Riprende la prenotazione dal punto giusto (anche al ritorno da Google o dalla conferma e-mail).
   useEffect(() => {
     if (restored === null || session === null) return;
     setStep(restored === 2 && session.ok ? 3 : restored);
     setRestored(null);
   }, [restored, session]);
 
+  // Giorni prenotabili di tutti i mesi coperti dal calendario: gli altri non si possono scegliere.
   useEffect(() => {
-    if (!serviceId || !month) return;
-    void fetch(`/api/disponibilita?servizio=${serviceId}&mese=${month}`)
-      .then((response) => response.json())
-      .then((body) => setDays(body.giorni ?? []));
-  }, [serviceId, month]);
+    if (!serviceId) return;
+    setDaysReady(false);
+    const months = [...new Set(horizon.map((item) => item.iso.slice(0, 7)))];
+    void Promise.all(
+      months.map((value) =>
+        fetch(`/api/disponibilita?servizio=${serviceId}&mese=${value}`)
+          .then((response) => response.json())
+          .then((body) => (body.giorni ?? []) as string[])
+          .catch(() => [] as string[]),
+      ),
+    ).then((lists) => {
+      setDays(lists.flat());
+      setDaysReady(true);
+    });
+  }, [serviceId, horizon]);
+
+  // Se il giorno scelto non è più disponibile (chiuso o bloccato), lo deseleziona.
+  useEffect(() => {
+    if (daysReady && day && !days.includes(day)) {
+      setDay(null);
+      setSlot(null);
+    }
+  }, [daysReady, day, days]);
 
   useEffect(() => {
     if (!serviceId || !day) return;
@@ -243,7 +258,7 @@ export function BookingWizard() {
         </ol>
       </TitleHero>
 
-      {state && !state.configurato ? <p className="note mt-4">Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
+      {state && !state.configurato ? <div className="warning-box mt-5">Le prenotazioni online apriranno a breve: intanto puoi scoprire trattamenti e orari.</div> : null}
 
       <div className="wizard-body mx-auto max-w-3xl">
         {step === 0 ? (
@@ -291,7 +306,7 @@ export function BookingWizard() {
                 <button type="button" className="btn btn-white btn-xs" onClick={() => go(0)}>Cambia</button>
               </div>
             ) : null}
-            <SectionHead id="passo-giorno" title="Scegli il giorno" subtitle="I giorni con il puntino hanno orari liberi: i migliori vanno via in fretta!" />
+            <SectionHead id="passo-giorno" title="Scegli il giorno" subtitle="I giorni chiari sono già pieni o chiusi: i migliori vanno via in fretta!" />
             <div className="date-strip" role="listbox" aria-label="Giorni disponibili">
               {horizon.map((item) => (
                 <button
@@ -299,9 +314,10 @@ export function BookingWizard() {
                   type="button"
                   className={`date-chip ${day === item.iso ? "is-on" : ""} ${serviceId && days.includes(item.iso) ? "has-slot" : ""}`}
                   aria-pressed={day === item.iso}
+                  disabled={!daysReady || !days.includes(item.iso)}
+                  title={daysReady && !days.includes(item.iso) ? "Nessun orario disponibile" : undefined}
                   onClick={() => {
                     setDay(item.iso);
-                    setMonth(item.iso.slice(0, 7));
                     setSlot(null);
                     remember({ day: item.iso, slot: null });
                   }}
@@ -346,7 +362,7 @@ export function BookingWizard() {
 
         {step === 2 ? (
           <section aria-labelledby="passo-dati">
-            <SectionHead id="passo-dati" title="Ultimo passo: chi sei?" subtitle="Ci serve solo per ricordarti l'appuntamento. Bastano pochi secondi, con Google o Apple anche meno." />
+            <SectionHead id="passo-dati" title="Ultimo passo: chi sei?" subtitle="Ci serve solo per ricordarti l'appuntamento. Bastano pochi secondi, con Google anche meno." />
             <div className="card">
               <QuickAuth
                 next="/prenota"
