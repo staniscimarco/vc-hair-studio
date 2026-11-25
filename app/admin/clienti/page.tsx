@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Archive, ArchiveRestore, Download, EyeOff, MessageCircle, Phone, Users } from "lucide-react";
+import { SearchBar, SectionHead, TitleHero } from "@/components/ui/app-header";
 
 type Customer = {
   id: string;
@@ -15,57 +17,97 @@ type Customer = {
 
 export default function CustomersPage() {
   const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<Customer[]>([]);
+  const [rows, setRows] = useState<Customer[] | null>(null);
+  const [filter, setFilter] = useState<"attive" | "archiviate">("attive");
+
   async function load(q = query) {
     const response = await fetch(`/api/admin/clienti?q=${encodeURIComponent(q)}`);
     const body = await response.json();
     if (!response.ok) toast.error(body.errore);
     else setRows(body.clienti ?? []);
   }
+
   useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get("q") ?? "";
+    setQuery(initial);
     void (async () => {
-      const response = await fetch("/api/admin/clienti");
+      const response = await fetch(`/api/admin/clienti?q=${encodeURIComponent(initial)}`);
       const body = await response.json();
-      if (!response.ok) toast.error(body.errore);
-      else setRows(body.clienti ?? []);
+      if (!response.ok) {
+        toast.error(body.errore);
+        setRows([]);
+      } else setRows(body.clienti ?? []);
     })();
   }, []);
+
   const phones = new Map<string, number>();
-  for (const row of rows) {
+  for (const row of rows ?? []) {
     const key = (row.phone ?? "").replace(/\D/g, "");
     if (key) phones.set(key, (phones.get(key) ?? 0) + 1);
   }
+  const active = (rows ?? []).filter((row) => !row.archived_at);
+  const archived = (rows ?? []).filter((row) => row.archived_at);
+  const shown = filter === "attive" ? active : archived;
+
   return (
     <section>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-5xl text-cocoa">Clienti</h1>
-        <a className="rounded-full border border-cocoa px-4 py-2" href="/api/admin/clienti/esporta">Esporta elenco</a>
+      <TitleHero
+        title="Clienti"
+        back="/admin"
+        action={
+          <a className="icon-btn is-white" href="/api/admin/clienti/esporta" aria-label="Esporta elenco" title="Esporta elenco">
+            <Download size={20} strokeWidth={2} />
+          </a>
+        }
+      >
+        <SearchBar placeholder="Cerca nome, e-mail o telefono" value={query} onChange={setQuery} onSubmit={() => void load()} filterLabel="Cerca" />
+      </TitleHero>
+
+      <div className="chips mt-5" role="tablist" aria-label="Filtra clienti">
+        <button role="tab" aria-selected={filter === "attive"} type="button" className={`chip ${filter === "attive" ? "is-on" : ""}`} onClick={() => setFilter("attive")}>
+          Tutte le clienti <span className="count">{active.length}</span>
+        </button>
+        <button role="tab" aria-selected={filter === "archiviate"} type="button" className={`chip ${filter === "archiviate" ? "is-on" : ""}`} onClick={() => setFilter("archiviate")}>
+          Archiviate <span className="count">{archived.length}</span>
+        </button>
       </div>
-      <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); void load(); }}>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cerca nome, e-mail o telefono" className="flex-1 rounded-2xl border border-line px-3 py-3" />
-        <button className="rounded-full bg-cocoa px-4 text-cream" type="submit">Cerca</button>
-      </form>
-      <div className="mt-4 grid gap-3">
-        {rows.map((row) => {
+
+      <SectionHead title={filter === "attive" ? "Schede clienti" : "Archivio"} href="/admin/appuntamenti" linkLabel="Nuovo appuntamento" />
+
+      {!rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1, 2, 3].map((index) => <div key={index} className="skeleton" style={{ height: 120 }} />)}</div> : null}
+      {rows && shown.length === 0 ? (
+        <div className="empty-state"><span className="tile-icon"><Users size={20} /></span>Nessuna cliente trovata.</div>
+      ) : null}
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {shown.map((row) => {
           const digits = (row.phone ?? "").replace(/\D/g, "");
           const wa = digits ? `https://wa.me/${digits.startsWith("39") ? digits : `39${digits}`}` : "";
+          const initials = `${row.first_name.charAt(0)}${row.last_name.charAt(0)}`.toUpperCase();
           return (
-            <article key={row.id} className="rounded-3xl bg-white p-4">
-              <p className="font-display text-2xl">{row.first_name} {row.last_name}</p>
-              <p className="text-sm">{row.email} · {row.phone}</p>
-              {digits && phones.get(digits)! > 1 ? <p className="text-sm text-rose">Possibile duplicato per telefono.</p> : null}
-              <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                {row.phone ? <a href={`tel:${row.phone}`}>Chiama</a> : null}
-                {wa ? <a href={wa} target="_blank" rel="noreferrer">WhatsApp</a> : null}
-                <button type="button" onClick={async () => {
+            <article key={row.id} className="salon-card" style={{ cursor: "default", padding: 14 }}>
+              <div className="flex items-center gap-3">
+                <span className="tile-icon is-primary" style={{ width: 52, height: 52, fontWeight: 600 }}>{initials || "?"}</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="m-0 truncate text-base">{row.first_name} {row.last_name}</h3>
+                  <p className="m-0 truncate text-[13px] text-[#3d3b47]">{[row.email, row.phone].filter(Boolean).join(" · ") || "Nessun contatto"}</p>
+                  {digits && phones.get(digits)! > 1 ? <span className="status-pill is-cancelled mt-1">Possibile duplicato per telefono</span> : null}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {row.phone ? <a className="btn btn-primary btn-xs" href={`tel:${row.phone}`}><Phone size={13} /> Chiama</a> : null}
+                {wa ? <a className="btn btn-accent btn-xs" href={wa} target="_blank" rel="noreferrer"><MessageCircle size={13} /> WhatsApp</a> : null}
+                <button className="btn btn-white btn-xs" type="button" onClick={async () => {
                   await fetch("/api/admin/clienti", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: row.id, archiviata: !row.archived_at, nome: row.first_name, cognome: row.last_name, email: row.email, telefono: row.phone, note: row.notes }) });
                   await load();
-                }}>{row.archived_at ? "Ripristina" : "Archivia"}</button>
-                <button type="button" onClick={async () => {
+                }}>
+                  {row.archived_at ? <><ArchiveRestore size={13} /> Ripristina</> : <><Archive size={13} /> Archivia</>}
+                </button>
+                <button className="btn btn-white btn-xs" type="button" onClick={async () => {
                   await fetch("/api/admin/clienti", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: row.id, azione: "anonimizza" }) });
                   toast.success("Scheda anonimizzata.");
                   await load();
-                }}>Anonimizza</button>
+                }}><EyeOff size={13} /> Anonimizza</button>
               </div>
             </article>
           );

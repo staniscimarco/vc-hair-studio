@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ChevronRight, Download, FileText, KeyRound, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { profileSchema } from "@/lib/validators";
+import { TitleHero } from "@/components/ui/app-header";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -68,38 +71,79 @@ export default function ProfilePage() {
     else toast.success("Richiesta di cancellazione registrata. Il salone la prenderà in carico.");
   }
 
+  const initials = `${profile.nome.charAt(0)}${profile.cognome.charAt(0)}`.toUpperCase();
+  const fullName = `${profile.nome} ${profile.cognome}`.trim();
+
   return (
-    <section className="app-screen grid gap-5">
-      <header className="app-hero">
-        <h1 className="font-display text-5xl text-cocoa">Profilo</h1>
-      </header>
-      <form action={save} className="grid gap-3 rounded-3xl bg-white p-5 shadow-[var(--shadow)]">
-        <label className="grid gap-1 text-sm">Nome<input name="nome" defaultValue={profile.nome} key={profile.nome} className="rounded-2xl border border-line px-3 py-3" /></label>
-        <label className="grid gap-1 text-sm">Cognome<input name="cognome" defaultValue={profile.cognome} key={profile.cognome} className="rounded-2xl border border-line px-3 py-3" /></label>
-        <label className="grid gap-1 text-sm">Telefono<input name="telefono" defaultValue={profile.telefono} key={profile.telefono} className="rounded-2xl border border-line px-3 py-3" /></label>
-        <p className="text-sm">E-mail: {profile.email}</p>
-        <button className="rounded-full bg-cocoa px-4 py-3 text-cream" type="submit">Salva profilo</button>
-      </form>
-      <form action={changePassword} className="grid gap-3 rounded-3xl bg-white p-5">
-        <label className="grid gap-1 text-sm">Nuova parola d&apos;ordine<input name="password" type="password" minLength={8} className="rounded-2xl border border-line px-3 py-3" required /></label>
-        <button className="rounded-full border border-cocoa px-4 py-3" type="submit">Aggiorna parola d&apos;ordine</button>
-      </form>
-      <div className="flex flex-wrap gap-3 text-sm">
-        <a className="underline" href="/privacy">Informativa sulla privacy</a>
-        <a className="underline" href="/condizioni">Condizioni di prenotazione</a>
-        <a className="underline" href="/api/profilo/esporta">Esporta i miei dati</a>
-        <button className="underline" type="button" onClick={() => void requestDeletion()}>Richiedi la cancellazione dell&apos;account</button>
-        <button
-          className="underline"
-          type="button"
-          onClick={async () => {
-            await (await getBrowserSupabase())?.auth.signOut();
-            router.push("/");
-            router.refresh();
-          }}
-        >
-          Esci
-        </button>
+    <section className="app-screen">
+      <TitleHero title="Profilo" back="/">
+        <div className="mt-5 flex flex-col items-center gap-2 text-center">
+          <span className="hero-avatar" style={{ width: 84, height: 84, fontSize: 28 }}>
+            {initials || <UserRound size={34} />}
+          </span>
+          <strong className="text-lg">{fullName || "Il tuo profilo"}</strong>
+          {profile.email ? <span className="text-[13px] opacity-85">{profile.email}</span> : null}
+        </div>
+      </TitleHero>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+        <form action={save} className="card grid gap-3">
+          <div className="card-title">
+            <span className="tile-icon"><UserRound size={20} /></span>
+            <h2>Dati personali</h2>
+          </div>
+          <label className="field">Nome<input name="nome" defaultValue={profile.nome} key={`n-${profile.nome}`} /></label>
+          <label className="field">Cognome<input name="cognome" defaultValue={profile.cognome} key={`c-${profile.cognome}`} /></label>
+          <label className="field">Telefono<input name="telefono" defaultValue={profile.telefono} key={`t-${profile.telefono}`} /></label>
+          <p className="note m-0">E-mail: {profile.email}</p>
+          <button className="btn btn-primary btn-block" type="submit">Salva profilo</button>
+        </form>
+
+        <div className="grid gap-5">
+          <form action={changePassword} className="card grid gap-3">
+            <div className="card-title">
+              <span className="tile-icon"><KeyRound size={20} /></span>
+              <h2>Sicurezza</h2>
+            </div>
+            <label className="field">Nuova parola d&apos;ordine<input name="password" type="password" minLength={8} required /></label>
+            <button className="btn btn-soft btn-block" type="submit">Aggiorna parola d&apos;ordine</button>
+          </form>
+
+          <nav className="card" aria-label="Altre opzioni" style={{ paddingBlock: 6 }}>
+            <Link className="list-row" href="/privacy">
+              <span className="tile-icon"><ShieldCheck size={18} /></span>
+              <span className="grow">Informativa sulla privacy</span>
+              <ChevronRight size={18} className="text-muted" />
+            </Link>
+            <Link className="list-row" href="/condizioni">
+              <span className="tile-icon"><FileText size={18} /></span>
+              <span className="grow">Condizioni di prenotazione</span>
+              <ChevronRight size={18} className="text-muted" />
+            </Link>
+            <a className="list-row" href="/api/profilo/esporta">
+              <span className="tile-icon"><Download size={18} /></span>
+              <span className="grow">Esporta i miei dati</span>
+              <ChevronRight size={18} className="text-muted" />
+            </a>
+            <button className="list-row" type="button" onClick={() => void requestDeletion()}>
+              <span className="tile-icon"><Trash2 size={18} /></span>
+              <span className="grow">Richiedi la cancellazione dell&apos;account</span>
+              <ChevronRight size={18} className="text-muted" />
+            </button>
+            <button
+              className="list-row is-danger"
+              type="button"
+              onClick={async () => {
+                await (await getBrowserSupabase())?.auth.signOut();
+                router.push("/");
+                router.refresh();
+              }}
+            >
+              <span className="tile-icon"><LogOut size={18} /></span>
+              <span className="grow">Esci</span>
+            </button>
+          </nav>
+        </div>
       </div>
     </section>
   );

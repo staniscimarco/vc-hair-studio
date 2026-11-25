@@ -1,11 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowUpRight, Bell, CalendarPlus, Check, CheckCircle2, Clock, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { formatDate, formatDuration, formatPrice, formatTime } from "@/lib/format";
+import { formatDate, formatPrice, formatTime } from "@/lib/format";
+import { HeroIconLink, SearchBar, SectionHead, TitleHero } from "@/components/ui/app-header";
+import { ServiceIcon, shortDuration } from "@/components/ui/service-icon";
 
 type Service = {
   id: string;
@@ -40,6 +43,7 @@ export function BookingWizard() {
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [loadedDay, setLoadedDay] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const service = state?.servizi.find((item) => item.id === serviceId) ?? null;
   const horizon = useMemo(() => nextDays(21), []);
@@ -87,8 +91,15 @@ export function BookingWizard() {
       });
   }, [serviceId, day]);
 
-  function remember(nextSlot = slot) {
-    sessionStorage.setItem(DRAFT, JSON.stringify({ serviceId, day, slot: nextSlot }));
+  function pickService(id: string) {
+    setServiceId(id);
+    setSlot(null);
+    setSheet(false);
+    remember(null, id);
+  }
+
+  function remember(nextSlot = slot, nextService = serviceId) {
+    sessionStorage.setItem(DRAFT, JSON.stringify({ serviceId: nextService, day, slot: nextSlot }));
   }
 
   async function confirm() {
@@ -120,96 +131,131 @@ export function BookingWizard() {
     toast.success("Il tuo appuntamento è confermato!");
   }
 
+  const query = search.trim().toLowerCase();
+  const visible = (state?.servizi ?? []).filter((item) => `${item.nome} ${item.descrizione}`.toLowerCase().includes(query));
+
   if (done && service) {
     return (
-      <section className="app-screen text-center">
-        <p className="eyebrow">Prenotazione confermata</p>
-        <h1 className="mt-3 font-display text-5xl text-cocoa">Il tuo appuntamento è confermato!</h1>
-        <p className="mt-4 text-lg leading-8">Ti aspettiamo per prenderci cura dei tuoi capelli e regalarti un momento di bellezza.</p>
-        <div className="service-card mt-8 text-left">
-          <p className="font-display text-3xl text-cocoa">{service.nome}</p>
-          <p className="mt-2">{formatDate(new Date(done.inizio))} · {formatTime(new Date(done.inizio))}</p>
-          <p className="mt-2">Codice {done.codice}</p>
-          <p className="mt-4 text-sm">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
-          <a className="cta" href={`/api/calendario/${done.token}`}>Aggiungi al calendario</a>
-        </div>
-      </section>
+      <div className="app-screen">
+        <TitleHero title="Prenotazione confermata" back="/" subtitle="Ti aspettiamo per prenderci cura dei tuoi capelli." />
+        <section className="mx-auto mt-8 grid max-w-xl justify-items-center gap-3 text-center">
+          <span className="tile-icon is-primary" style={{ width: 76, height: 76 }}><CheckCircle2 size={36} /></span>
+          <h2 className="m-0 text-2xl">Il tuo appuntamento è confermato!</h2>
+          <p className="m-0 text-sm leading-6 text-muted">Ti aspettiamo per prenderci cura dei tuoi capelli e regalarti un momento di bellezza.</p>
+          <article className="pick-card mt-4 text-left" style={{ cursor: "default" }}>
+            <span className="pick-thumb salon-media tone-0" style={{ height: 76 }}><ServiceIcon name={service.nome} size={30} /></span>
+            <div className="pick-main">
+              <h3>{service.nome}</h3>
+              <p>{formatDate(new Date(done.inizio))} · {formatTime(new Date(done.inizio))}</p>
+              <div className="pick-meta"><span className="rating-pill">Codice {done.codice}</span></div>
+            </div>
+          </article>
+          <p className="note">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
+          <a className="btn btn-primary btn-block" href={`/api/calendario/${done.token}`}><CalendarPlus size={18} /> Aggiungi al calendario</a>
+          <Link className="btn btn-soft btn-block" href="/i-miei-appuntamenti">I miei appuntamenti</Link>
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="app-screen">
-      <header className="app-hero">
-        <Image src="/brand/vale.png" alt="VC Hair Studio" width={64} height={64} unoptimized />
-        <p className="eyebrow">Prenota</p>
-        <h1 className="mt-2 font-display text-4xl text-cocoa">Prenota il tuo appuntamento</h1>
-      </header>
+      <TitleHero
+        title="Prenota"
+        back="/"
+        action={
+          <HeroIconLink href="/i-miei-appuntamenti" label="I miei appuntamenti" tone="white" dot>
+            <Bell size={20} strokeWidth={2} />
+          </HeroIconLink>
+        }
+      >
+        <SearchBar placeholder="Cerca trattamento" value={search} onChange={setSearch} />
+      </TitleHero>
 
-      {!state ? <div className="h-28 animate-pulse rounded-[28px] bg-white" role="status">Caricamento in corso.</div> : null}
-      {state && !state.configurato ? <p>Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
-      {state?.configurato && !state.prenotazioniAttive ? <p className="rounded-3xl bg-white p-4 text-sm">Le prenotazioni online non sono ancora attive.</p> : null}
+      {state && !state.configurato ? <p className="note mt-4">Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
+      {state?.configurato && !state.prenotazioniAttive ? <p className="card-soft mt-4 text-sm">Le prenotazioni online non sono ancora attive.</p> : null}
+
+      {state && state.servizi.length > 0 ? (
+        <div className="chips mt-5" role="group" aria-label="Scelta rapida del trattamento">
+          <button type="button" className={`chip ${!serviceId ? "is-on" : ""}`} onClick={() => { setServiceId(null); setSlot(null); setSheet(false); }}>
+            Tutti i servizi
+          </button>
+          {state.servizi.map((item) => (
+            <button key={item.id} type="button" className={`chip ${serviceId === item.id ? "is-on" : ""}`} onClick={() => pickService(item.id)}>
+              {item.nome}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="booking-layout">
-        <section>
-          <div className="section-label">
-            <span className="field-caption">Trattamento</span>
-            <h2 className="font-display text-3xl text-cocoa">Come possiamo prenderci cura dei tuoi capelli?</h2>
-          </div>
+        <section aria-labelledby="scegli-trattamento">
+          <SectionHead id="scegli-trattamento" title="Trattamento" subtitle="Come possiamo prenderci cura dei tuoi capelli?" />
+          {!state ? (
+            <div className="grid gap-3" role="status" aria-label="Caricamento in corso">
+              {[0, 1, 2].map((index) => <div key={index} className="skeleton" style={{ height: 92 }} />)}
+            </div>
+          ) : null}
+          {state && visible.length === 0 ? (
+            <div className="empty-state"><span className="tile-icon"><Sparkles size={20} /></span>{search ? "Nessun trattamento corrisponde alla ricerca." : "Nessun trattamento disponibile."}</div>
+          ) : null}
           <div className="grid gap-3">
-            {(state?.servizi ?? []).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`service-card ${serviceId === item.id ? "is-on" : ""}`}
-                onClick={() => {
-                  setServiceId(item.id);
-                  setSlot(null);
-                  setSheet(false);
-                  remember(null);
-                }}
-              >
-                <span className="font-display text-2xl text-cocoa">{item.nome}</span>
-                <span className="mt-1 block text-sm leading-6">{item.descrizione}</span>
-                <span className="mt-3 inline-flex rounded-full px-3 py-1 text-sm text-cocoa" style={{ background: item.colore }}>
-                  {formatDuration(item.durataMinuti)} · {formatPrice(item.prezzoCentesimi)}
-                </span>
-              </button>
-            ))}
+            {visible.map((item, index) => {
+              const on = serviceId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={on}
+                  className={`pick-card ${on ? "is-on" : ""}`}
+                  onClick={() => pickService(item.id)}
+                >
+                  <span className={`pick-thumb salon-media tone-${index % 4}`} style={{ height: 76 }}>
+                    <ServiceIcon name={item.nome} size={30} />
+                  </span>
+                  <span className="pick-main">
+                    <h3>{item.nome}</h3>
+                    <p>{item.descrizione}</p>
+                    <span className="pick-meta">
+                      <strong>{item.prezzoCentesimi == null ? "Da concordare" : formatPrice(item.prezzoCentesimi)}</strong>
+                      <span className="rating-pill"><Clock size={11} strokeWidth={2.4} style={{ fill: "none", color: "#fff" }} />{shortDuration(item.durataMinuti)}</span>
+                    </span>
+                  </span>
+                  <span className="round-arrow" aria-hidden style={on ? { background: "var(--primary)" } : undefined}>
+                    {on ? <Check size={16} strokeWidth={2.6} /> : <ArrowUpRight size={16} strokeWidth={2.2} />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        <section>
-          <div className="section-label">
-            <span className="field-caption">Giorno</span>
-            <p>Scegli il giorno che preferisci</p>
-          </div>
+        <section className="sticky-col" aria-labelledby="scegli-giorno">
+          <SectionHead id="scegli-giorno" title="Giorno" subtitle="Scegli il giorno che preferisci" />
           <div className="date-strip" role="listbox" aria-label="Giorni disponibili">
             {horizon.map((item) => (
-                <button
-                  key={item.iso}
-                  type="button"
-                  className={`date-chip ${day === item.iso ? "is-on" : ""} ${serviceId && days.includes(item.iso) ? "has-slot" : ""}`}
-                  aria-pressed={day === item.iso}
-                  onClick={() => {
-                    setDay(item.iso);
-                    setMonth(item.iso.slice(0, 7));
-                    setSlot(null);
-                    setSheet(false);
-                  }}
-                >
-                  <small>{item.weekday}</small>
-                  <strong>{item.number}</strong>
-                </button>
+              <button
+                key={item.iso}
+                type="button"
+                className={`date-chip ${day === item.iso ? "is-on" : ""} ${serviceId && days.includes(item.iso) ? "has-slot" : ""}`}
+                aria-pressed={day === item.iso}
+                onClick={() => {
+                  setDay(item.iso);
+                  setMonth(item.iso.slice(0, 7));
+                  setSlot(null);
+                  setSheet(false);
+                }}
+              >
+                <small>{item.weekday}</small>
+                <strong>{item.number}</strong>
+              </button>
             ))}
           </div>
 
-          <div className="section-label">
-            <span className="field-caption">Orario</span>
-            <p>Seleziona l&apos;orario più comodo per te</p>
-          </div>
-          {!serviceId || !day ? <p className="text-sm">Scegli il trattamento e il giorno per vedere gli orari.</p> : null}
+          <SectionHead title="Orario" subtitle="Seleziona l'orario più comodo per te" />
+          {!serviceId || !day ? <div className="empty-state"><span className="tile-icon"><Clock size={20} /></span>Scegli il trattamento e il giorno per vedere gli orari.</div> : null}
           {serviceId && day && loadedDay === day && slots.length === 0 ? (
-            <p>Non ci sono orari disponibili per questa giornata. Ti invitiamo a scegliere un&apos;altra data.</p>
+            <div className="empty-state">Non ci sono orari disponibili per questa giornata. Ti invitiamo a scegliere un&apos;altra data.</div>
           ) : null}
           <div className="time-grid">
             {slots.map((item) => (
@@ -227,6 +273,9 @@ export function BookingWizard() {
               </button>
             ))}
           </div>
+          {service && slot && !sheet ? (
+            <button className="btn btn-primary btn-block mt-6" type="button" onClick={() => setSheet(true)}>Rivedi e conferma</button>
+          ) : null}
         </section>
       </div>
 
@@ -242,14 +291,23 @@ export function BookingWizard() {
               animate={{ y: 0 }}
             >
               <div className="sheet-handle" />
-              <p className="field-caption">Riepilogo</p>
-              <h2 className="font-display text-3xl text-cocoa">{service.nome}</h2>
-              <p className="mt-2">{formatDate(new Date(slot))} alle {formatTime(new Date(slot))}</p>
-              <p>{formatDuration(service.durataMinuti)} · {formatPrice(service.prezzoCentesimi)}</p>
-              <p className="mt-3 text-sm">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
-              <button className="cta" type="button" disabled={busy || !state?.prenotazioniAttive} onClick={() => void confirm()}>
+              <p className="eyebrow">Riepilogo</p>
+              <div className="pick-card mt-3" style={{ cursor: "default" }}>
+                <span className="pick-thumb salon-media tone-0" style={{ height: 76 }}><ServiceIcon name={service.nome} size={30} /></span>
+                <div className="pick-main">
+                  <h3>{service.nome}</h3>
+                  <p>{formatDate(new Date(slot))} alle {formatTime(new Date(slot))}</p>
+                  <div className="pick-meta">
+                    <strong>{service.prezzoCentesimi == null ? "Da concordare" : formatPrice(service.prezzoCentesimi)}</strong>
+                    <span className="rating-pill">{shortDuration(service.durataMinuti)}</span>
+                  </div>
+                </div>
+              </div>
+              <p className="note mt-3">Il pagamento verrà effettuato direttamente in salone al termine del trattamento.</p>
+              <button className="btn btn-primary btn-block mt-4" type="button" disabled={busy || !state?.prenotazioniAttive} onClick={() => void confirm()}>
                 {session ? "Conferma appuntamento" : "Accedi per confermare"}
               </button>
+              <button className="btn btn-soft btn-block mt-2" type="button" onClick={() => setSheet(false)}>Cambia orario</button>
             </motion.div>
           </motion.div>
         ) : null}

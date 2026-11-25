@@ -1,14 +1,27 @@
 import { Suspense } from "react";
+import { CalendarPlus } from "lucide-react";
 import { SalonCalendar } from "@/components/admin/salon-calendar";
+import { HeroIconLink, TitleHero } from "@/components/ui/app-header";
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ date?: string; appointment?: string }> }) {
   const params = await searchParams;
   return (
     <section>
-      <h1 className="mb-4 font-display text-5xl text-cocoa">Calendario</h1>
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-3xl bg-blush-soft" />}>
-        <SalonCalendar focusDate={params.date} focusId={params.appointment} />
-      </Suspense>
+      <TitleHero
+        title="Agenda"
+        back="/admin"
+        subtitle="Trascina un appuntamento per spostarlo, seleziona una fascia libera per inserirne uno."
+        action={
+          <HeroIconLink href="/admin/appuntamenti" label="Nuovo appuntamento" tone="white">
+            <CalendarPlus size={20} strokeWidth={2} />
+          </HeroIconLink>
+        }
+      />
+      <div className="mt-5">
+        <Suspense fallback={<div className="skeleton h-96" />}>
+          <SalonCalendar focusDate={params.date} focusId={params.appointment} />
+        </Suspense>
+      </div>
     </section>
   );
 }

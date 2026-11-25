@@ -1,8 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  ArrowUpRight,
+  Ban,
+  Bell,
+  CalendarCheck,
+  CalendarDays,
+  CalendarPlus,
+  CalendarX,
+  CheckCircle2,
+  Clock,
+  Euro,
+  Hourglass,
+  ListChecks,
+  Scissors,
+  Settings,
+  Sparkles,
+  UserRound,
+  Users,
+  XCircle,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { formatDate, formatPrice, formatTime } from "@/lib/format";
+import { GreetingHero, HeroIconLink, SearchBar, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
 
 type Stats = {
   oggi: number;
@@ -19,56 +43,141 @@ type Stats = {
   incassoEffettivo: number;
 };
 
+const actions: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/admin/appuntamenti", label: "Nuovo", icon: CalendarPlus },
+  { href: "/admin/calendario", label: "Agenda", icon: CalendarDays },
+  { href: "/admin/disponibilita", label: "Blocca", icon: Ban },
+  { href: "/admin/disponibilita", label: "Chiudi giornata", icon: CalendarX },
+  { href: "/admin/servizi", label: "Servizi", icon: Scissors },
+  { href: "/admin/clienti", label: "Clienti", icon: Users },
+  { href: "/admin/configurazione", label: "Configura", icon: ListChecks },
+];
+
 export default function AdminHome() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
+  const [name, setName] = useState("");
+  const [query, setQuery] = useState("");
+  const [now, setNow] = useState<Date | null>(null);
+
   useEffect(() => {
+    setNow(new Date());
     void fetch("/api/admin/panoramica").then(async (response) => {
       const body = await response.json();
       if (!response.ok) setError(body.errore);
       else setStats(body);
     });
+    void fetch("/api/sessione")
+      .then((response) => response.json())
+      .then((body) => setName(body.nome ?? ""))
+      .catch(() => undefined);
   }, []);
+
+  const cards: { label: string; value: string; icon: LucideIcon }[] = stats
+    ? [
+        { label: "Oggi", value: String(stats.oggi), icon: CalendarCheck },
+        { label: "Domani", value: String(stats.domani), icon: CalendarDays },
+        { label: "Nuove prenotazioni", value: String(stats.nuove), icon: Sparkles },
+        { label: "Completati", value: String(stats.completati), icon: CheckCircle2 },
+        { label: "Annullati", value: String(stats.annullati), icon: XCircle },
+        { label: "Clienti", value: String(stats.clienti), icon: Users },
+        { label: "Ore prenotate", value: stats.orePrenotate.toFixed(1), icon: Clock },
+        { label: "Ore disponibili", value: stats.oreDisponibili.toFixed(1), icon: Hourglass },
+        { label: "Incasso previsto", value: formatPrice(stats.incassoPrevisto), icon: Euro },
+        { label: "Senza prezzo", value: String(stats.senzaPrezzo), icon: Euro },
+        { label: "Incasso registrato", value: formatPrice(stats.incassoEffettivo), icon: Euro },
+      ]
+    : [];
+
   return (
     <section>
-      <header className="app-hero">
-        <p className="eyebrow">Agenda</p>
-        <h1 className="font-display text-5xl text-cocoa">Oggi in salone</h1>
-      </header>
-      {error ? <p className="mt-4">{error}</p> : null}
-      {!stats && !error ? <div className="mt-6 h-40 animate-pulse rounded-3xl bg-blush-soft" /> : null}
-      {stats ? (
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Card label="Oggi" value={String(stats.oggi)} />
-          <Card label="Domani" value={String(stats.domani)} />
-          <Card label="Prossimo" value={stats.prossimo ? `${formatDate(new Date(stats.prossimo))} ${formatTime(new Date(stats.prossimo))}` : "Nessuno"} />
-          <Card label="Nuove prenotazioni" value={String(stats.nuove)} />
-          <Card label="Completati" value={String(stats.completati)} />
-          <Card label="Annullati" value={String(stats.annullati)} />
-          <Card label="Clienti" value={String(stats.clienti)} />
-          <Card label="Ore prenotate" value={stats.orePrenotate.toFixed(1)} />
-          <Card label="Ore disponibili" value={stats.oreDisponibili.toFixed(1)} />
-          <Card label="Incasso previsto" value={formatPrice(stats.incassoPrevisto)} />
-          <Card label="Senza prezzo" value={String(stats.senzaPrezzo)} />
-          <Card label="Incasso registrato" value={formatPrice(stats.incassoEffettivo)} />
+      <GreetingHero
+        title={`${now ? greeting(now) : "Ciao"}${name ? `, ${name}` : ""}`}
+        subtitle={now ? todayLabel(now) : "Area salone"}
+        avatar={name ? name.charAt(0).toUpperCase() : <UserRound size={24} />}
+        actions={
+          <>
+            <HeroIconLink href="/admin/impostazioni" label="Impostazioni">
+              <Settings size={20} strokeWidth={2} />
+            </HeroIconLink>
+            <HeroIconLink href="/admin/notifiche" label="Notifiche" tone="white" dot>
+              <Bell size={20} strokeWidth={2} />
+            </HeroIconLink>
+          </>
+        }
+      >
+        <SearchBar
+          placeholder="Cerca cliente, telefono, e-mail"
+          value={query}
+          onChange={setQuery}
+          onSubmit={() => router.push(`/admin/clienti?q=${encodeURIComponent(query)}`)}
+          filterLabel="Cerca"
+        />
+      </GreetingHero>
+
+      <SectionHead title="Oggi in salone" href="/admin/calendario" linkLabel="Agenda" />
+      <div className="offer-stack">
+        <article className="offer-card">
+          <div className="offer-body">
+            <span className="offer-tag">Agenda di oggi <CalendarCheck size={12} color="#5826b2" /></span>
+            <h2>{stats ? `${stats.oggi} ${stats.oggi === 1 ? "appuntamento" : "appuntamenti"} oggi` : "Caricamento agenda…"}</h2>
+            <p className="offer-line">
+              {stats?.prossimo
+                ? `Prossimo: ${formatDate(new Date(stats.prossimo))} alle ${formatTime(new Date(stats.prossimo))}`
+                : "Nessun appuntamento in arrivo"}
+            </p>
+            <div className="offer-actions">
+              <Link className="btn btn-accent btn-sm" href="/admin/calendario">Apri agenda</Link>
+              <Link className="round-arrow" href="/admin/appuntamenti" aria-label="Nuovo appuntamento">
+                <ArrowUpRight size={16} strokeWidth={2.2} />
+              </Link>
+            </div>
+          </div>
+          <span className="offer-visual" aria-hidden>
+            <Image src="/brand/vale.png" alt="" width={240} height={240} unoptimized />
+          </span>
+          <span className="offer-badge">Domani<br />{stats ? stats.domani : "–"}</span>
+        </article>
+      </div>
+
+      <SectionHead title="Azioni rapide" />
+      <div className="service-dots">
+        {actions.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.label} href={item.href} className="service-dot">
+              <span className="dot-circle"><Icon size={24} strokeWidth={1.9} /></span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <SectionHead title="Panoramica" subtitle="Dati del periodo corrente" />
+      {error ? <div className="empty-state">{error}</div> : null}
+      {!stats && !error ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }, (_, index) => <div key={index} className="skeleton" style={{ height: 112 }} />)}
         </div>
       ) : null}
-      <p className="mt-4 text-sm">La registrazione degli incassi non sostituisce gli adempimenti fiscali.</p>
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Link className="rounded-full bg-cocoa px-4 py-2 text-cream" href="/admin/calendario">+ Nuovo appuntamento</Link>
-        <Link className="rounded-full border border-cocoa px-4 py-2" href="/admin/disponibilita">Blocca disponibilità</Link>
-        <Link className="rounded-full border border-cocoa px-4 py-2" href="/admin/disponibilita">Chiudi giornata</Link>
-        <Link className="rounded-full border border-cocoa px-4 py-2" href="/admin/calendario">Vai al calendario</Link>
-      </div>
+      {stats ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.label} className="stat-card">
+                <span className="tile-icon is-accent" style={{ width: 36, height: 36 }}><Icon size={17} /></span>
+                <div>
+                  <p>{card.label}</p>
+                  <strong>{card.value}</strong>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
+      <p className="note mt-4">La registrazione degli incassi non sostituisce gli adempimenti fiscali.</p>
     </section>
-  );
-}
-
-function Card({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-3xl bg-white p-4 shadow-[var(--shadow)]">
-      <p className="text-sm text-ink/60">{label}</p>
-      <p className="mt-1 font-display text-3xl text-cocoa">{value}</p>
-    </article>
   );
 }

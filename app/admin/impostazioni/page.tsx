@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CalendarClock, Scale, Store } from "lucide-react";
+import { TitleHero } from "@/components/ui/app-header";
 
 export default function SettingsPage() {
   const [ready, setReady] = useState(false);
@@ -76,43 +78,70 @@ export default function SettingsPage() {
     else toast.success("Impostazioni salvate.");
   }
 
-  if (!ready) return <div className="h-40 animate-pulse rounded-3xl bg-blush-soft" />;
+  if (!ready) {
+    return (
+      <section>
+        <TitleHero title="Impostazioni" back="/admin" />
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">{[0, 1, 2, 3].map((index) => <div key={index} className="skeleton" style={{ height: 220 }} />)}</div>
+      </section>
+    );
+  }
   return (
-    <form onSubmit={(event) => void save(event)} className="grid max-w-xl gap-3">
-      <h1 className="font-display text-5xl text-cocoa">Impostazioni</h1>
-      <Field name="nomeSalone" label="Nome del salone" defaultValue={String(values.nomeSalone ?? "")} />
-      <Field name="parrucchiera" label="Nome della parrucchiera" defaultValue={String(values.parrucchiera ?? "")} />
-      <Field name="telefono" label="Telefono" defaultValue={String(values.telefono ?? "")} />
-      <Field name="email" label="E-mail" defaultValue={String(values.email ?? "")} />
-      <Field name="indirizzo" label="Indirizzo" defaultValue={String(values.indirizzo ?? "")} />
-      <Field name="citta" label="Città" defaultValue={String(values.citta ?? "")} />
-      <Field name="cap" label="CAP" defaultValue={String(values.cap ?? "")} />
-      <Field name="slotMinuti" label="Intervallo degli orari (minuti)" defaultValue={String(values.slotMinuti)} />
-      <Field name="anticipoMinuti" label="Anticipo minimo (minuti)" defaultValue={String(values.anticipoMinuti)} />
-      <Field name="orizzonteGiorni" label="Limite massimo di prenotazione (giorni)" defaultValue={String(values.orizzonteGiorni)} />
-      <Field name="oreAnnullamento" label="Ore minime per annullare" defaultValue={String(values.oreAnnullamento)} />
-      <Field name="oreModifica" label="Ore minime per modificare" defaultValue={String(values.oreModifica)} />
-      <Field name="orePromemoria" label="Promemoria ore prima" defaultValue={String(values.orePromemoria)} />
-      <label><input name="promemoriaAttivi" type="checkbox" defaultChecked={Boolean(values.promemoriaAttivi)} /> Promemoria attivi</label>
-      <label><input name="prenotazioniAttive" type="checkbox" defaultChecked={Boolean(values.prenotazioniAttive)} /> Prenotazioni pubbliche attive</label>
-      <label><input name="configurazioneCompleta" type="checkbox" defaultChecked={Boolean(values.configurazioneCompleta)} /> Configurazione essenziale completata</label>
-      <h2 className="font-display text-3xl">Informazioni legali</h2>
-      <Field name="titolareNome" label="Titolare del trattamento" defaultValue={String(values.titolareNome ?? "")} />
-      <Field name="titolareEmail" label="E-mail del titolare" defaultValue={String(values.titolareEmail ?? "")} />
-      <Field name="titolareIndirizzo" label="Indirizzo del titolare" defaultValue={String(values.titolareIndirizzo ?? "")} />
-      <Field name="partitaIva" label="Partita IVA" defaultValue={String(values.partitaIva ?? "")} />
-      <Field name="conservazioneMesi" label="Conservazione dati (mesi)" defaultValue={String(values.conservazioneMesi)} />
-      <textarea name="noteLegali" defaultValue={String(values.noteLegali ?? "")} className="rounded-2xl border border-line px-3 py-3" />
-      <button className="rounded-full bg-cocoa px-4 py-3 text-cream" type="submit">Salva impostazioni</button>
+    <form onSubmit={(event) => void save(event)}>
+      <TitleHero title="Impostazioni" back="/admin" subtitle="Dati del salone, regole di prenotazione e informazioni legali." />
+      <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+        <div className="card grid gap-3">
+          <div className="card-title"><span className="tile-icon"><Store size={20} /></span><h2>Salone</h2></div>
+          <Field name="nomeSalone" label="Nome del salone" defaultValue={String(values.nomeSalone ?? "")} />
+          <Field name="parrucchiera" label="Nome della parrucchiera" defaultValue={String(values.parrucchiera ?? "")} />
+          <div className="field-grid cols-2">
+            <Field name="telefono" label="Telefono" defaultValue={String(values.telefono ?? "")} />
+            <Field name="email" label="E-mail" defaultValue={String(values.email ?? "")} />
+          </div>
+          <Field name="indirizzo" label="Indirizzo" defaultValue={String(values.indirizzo ?? "")} />
+          <div className="field-grid cols-2">
+            <Field name="citta" label="Città" defaultValue={String(values.citta ?? "")} />
+            <Field name="cap" label="CAP" defaultValue={String(values.cap ?? "")} />
+          </div>
+        </div>
+
+        <div className="card grid gap-3">
+          <div className="card-title"><span className="tile-icon"><CalendarClock size={20} /></span><h2>Regole di prenotazione</h2></div>
+          <div className="field-grid cols-2">
+            <Field name="slotMinuti" label="Intervallo degli orari (minuti)" defaultValue={String(values.slotMinuti)} />
+            <Field name="anticipoMinuti" label="Anticipo minimo (minuti)" defaultValue={String(values.anticipoMinuti)} />
+            <Field name="orizzonteGiorni" label="Limite massimo (giorni)" defaultValue={String(values.orizzonteGiorni)} />
+            <Field name="oreAnnullamento" label="Ore minime per annullare" defaultValue={String(values.oreAnnullamento)} />
+            <Field name="oreModifica" label="Ore minime per modificare" defaultValue={String(values.oreModifica)} />
+            <Field name="orePromemoria" label="Promemoria ore prima" defaultValue={String(values.orePromemoria)} />
+          </div>
+          <label className="toggle">Promemoria attivi<input name="promemoriaAttivi" type="checkbox" defaultChecked={Boolean(values.promemoriaAttivi)} /></label>
+          <label className="toggle">Prenotazioni pubbliche attive<input name="prenotazioniAttive" type="checkbox" defaultChecked={Boolean(values.prenotazioniAttive)} /></label>
+          <label className="toggle">Configurazione essenziale completata<input name="configurazioneCompleta" type="checkbox" defaultChecked={Boolean(values.configurazioneCompleta)} /></label>
+        </div>
+
+        <div className="card grid gap-3 lg:col-span-2">
+          <div className="card-title"><span className="tile-icon"><Scale size={20} /></span><h2>Informazioni legali</h2></div>
+          <div className="field-grid cols-2">
+            <Field name="titolareNome" label="Titolare del trattamento" defaultValue={String(values.titolareNome ?? "")} />
+            <Field name="titolareEmail" label="E-mail del titolare" defaultValue={String(values.titolareEmail ?? "")} />
+            <Field name="titolareIndirizzo" label="Indirizzo del titolare" defaultValue={String(values.titolareIndirizzo ?? "")} />
+            <Field name="partitaIva" label="Partita IVA" defaultValue={String(values.partitaIva ?? "")} />
+            <Field name="conservazioneMesi" label="Conservazione dati (mesi)" defaultValue={String(values.conservazioneMesi)} />
+          </div>
+          <label className="field">Note legali<textarea name="noteLegali" defaultValue={String(values.noteLegali ?? "")} /></label>
+        </div>
+      </div>
+      <button className="btn btn-primary btn-block mt-6 lg:w-auto lg:px-10" type="submit">Salva impostazioni</button>
     </form>
   );
 }
 
 function Field({ name, label, defaultValue }: { name: string; label: string; defaultValue: string }) {
   return (
-    <label className="grid gap-1 text-sm">
+    <label className="field">
       {label}
-      <input name={name} defaultValue={defaultValue} className="rounded-2xl border border-line px-3 py-3" />
+      <input name={name} defaultValue={defaultValue} />
     </label>
   );
 }

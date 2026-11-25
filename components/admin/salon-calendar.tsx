@@ -22,10 +22,11 @@ type Appointment = {
 };
 
 const statusColor: Record<string, string> = {
-  completed: "#2F6B4F",
-  cancelled: "#B7B1AE",
-  no_show: "#8C3A3A",
-  in_progress: "#69423C",
+  confirmed: "#9D6CFB",
+  completed: "#1F9D6B",
+  cancelled: "#C9C5D6",
+  no_show: "#D6455D",
+  in_progress: "#5826B2",
 };
 
 function one<T>(value: T | T[] | null): T | null {
@@ -56,8 +57,8 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
         title: `${service?.name ?? "Trattamento"} · ${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim(),
         start: item.starts_at,
         end: item.ends_at,
-        backgroundColor: statusColor[item.status] ?? service?.color ?? "#E8B4B8",
-        borderColor: item.id === focusId ? "#69423C" : "transparent",
+        backgroundColor: statusColor[item.status] ?? service?.color ?? "#9D6CFB",
+        borderColor: item.id === focusId ? "#5826B2" : "transparent",
         classNames: fresh || item.id === focusId ? ["ring-2"] : [],
         extendedProps: item,
       };
@@ -68,7 +69,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
       start: item.starts_at,
       end: item.ends_at,
       display: "background",
-      backgroundColor: "#d9d4d2",
+      backgroundColor: "#ECEBFB",
     }));
     setEvents([...appointments, ...blocks]);
   }
@@ -96,7 +97,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
   }
 
   return (
-    <div className="salon-agenda rounded-[28px] bg-white p-3 shadow-[var(--shadow)]">
+    <div className="salon-agenda card p-3 lg:p-5">
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
         locale={itLocale}
@@ -105,7 +106,8 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
         headerToolbar={mobile
           ? { left: "prev,next", center: "title", right: "timeGridDay,listWeek" }
           : { left: "prev,next today", center: "title", right: "timeGridDay,timeGridWeek,dayGridMonth,listWeek" }}
-        buttonText={{ today: "Oggi", month: "Mese", week: "Settimana", day: "Giorno", list: "Elenco" }}
+        buttonIcons={false}
+        buttonText={{ prev: "‹", next: "›", today: "Oggi", month: "Mese", week: "Settimana", day: "Giorno", list: "Elenco" }}
         allDayText="Intera giornata"
         slotMinTime="07:00:00"
         slotMaxTime="21:00:00"
@@ -126,23 +128,31 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
           <button className="sheet-scrim" type="button" aria-label="Chiudi" onClick={() => setDraft(null)} />
           <div className="sheet-panel" role="dialog" aria-label="Fascia libera">
             <div className="sheet-handle" />
-            <p className="field-caption">Fascia libera</p>
+            <p className="eyebrow">Fascia libera</p>
+            <h2>Cosa vuoi fare?</h2>
             <div className="mt-3 grid gap-2">
-              <button className="service-card" type="button" onClick={() => router.push(`/admin/appuntamenti?inizio=${encodeURIComponent(draft.start)}`)}>Inserisci appuntamento</button>
-              <button className="service-card" type="button" onClick={() => router.push(`/admin/disponibilita?inizio=${encodeURIComponent(draft.start)}&fine=${encodeURIComponent(draft.end)}`)}>Blocca disponibilità</button>
+              <button className="btn btn-primary btn-block" type="button" onClick={() => router.push(`/admin/appuntamenti?inizio=${encodeURIComponent(draft.start)}`)}>Inserisci appuntamento</button>
+              <button className="btn btn-soft btn-block" type="button" onClick={() => router.push(`/admin/disponibilita?inizio=${encodeURIComponent(draft.start)}&fine=${encodeURIComponent(draft.end)}`)}>Blocca disponibilità</button>
             </div>
           </div>
         </>
       ) : null}
       {selected?.id ? (
-        <div className="mt-4 rounded-[28px] bg-cream p-4">
-          <p className="font-display text-2xl">Dettaglio</p>
-          <p>Codice {selected.code} · {selected.status}</p>
+        <div className="card-soft mt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="m-0 text-lg">Dettaglio appuntamento</h2>
+            <button className="btn btn-white btn-xs" type="button" onClick={() => setSelected(null)}>Chiudi</button>
+          </div>
+          <p className="mt-1 text-sm">
+            {one(selected.services)?.name ?? "Trattamento"} · {one(selected.customers)?.first_name ?? ""} {one(selected.customers)?.last_name ?? ""}
+            {one(selected.customers)?.phone ? <> · <a className="font-medium text-primary-strong" href={`tel:${one(selected.customers)?.phone}`}>{one(selected.customers)?.phone}</a></> : null}
+          </p>
+          <p className="note m-0">Codice {selected.code}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(["confirmed", "in_progress", "completed", "cancelled", "no_show"] as const).map((status) => (
               <button
                 key={status}
-                className="rounded-full border border-line px-3 py-1 text-sm"
+                className={`chip ${selected.status === status ? "is-on" : "bg-white"}`}
                 type="button"
                 onClick={async () => {
                   await fetch("/api/admin/agenda", {
@@ -150,6 +160,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({ id: selected.id, stato: status }),
                   });
+                  setSelected({ ...selected, status });
                   toast.success("Stato aggiornato.");
                 }}
               >
@@ -157,7 +168,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
               </button>
             ))}
           </div>
-          <p className="mt-3 text-sm">La registrazione degli incassi non sostituisce gli adempimenti fiscali.</p>
+          <p className="note mt-3">La registrazione degli incassi non sostituisce gli adempimenti fiscali.</p>
         </div>
       ) : null}
     </div>

@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
 export function InstallHint() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
@@ -27,36 +29,36 @@ export function InstallHint() {
 
   if (hidden) return null;
 
+  function dismiss() {
+    sessionStorage.setItem("vc-installazione-nascosta", "1");
+    setHidden(true);
+  }
+
   return (
-    <aside className="fixed inset-x-3 bottom-3 z-40 rounded-3xl border border-line bg-white/95 p-4 shadow-[var(--shadow)] backdrop-blur sm:left-auto sm:max-w-sm">
-      <p className="font-display text-xl text-cocoa">Installa VC Hair Studio</p>
-      {ios ? (
-        <p className="mt-2 text-sm leading-6">
-          Su iPhone o iPad apri il menu Condividi di Safari e scegli «Aggiungi a Home». Le notifiche si possono attivare dopo l&apos;installazione, da iOS 16.4.
-        </p>
-      ) : (
-        <p className="mt-2 text-sm leading-6">
-          Installa l&apos;applicazione per aprire l&apos;agenda dal telefono, anche a schermo intero.
-        </p>
-      )}
+    <aside className="install-hint" aria-label="Installa l'applicazione">
+      <div className="flex items-start gap-3">
+        <span className="hero-avatar" style={{ width: 44, height: 44, borderColor: "var(--lavender)" }}>
+          <Image src="/brand/vale.png" alt="" width={44} height={44} unoptimized />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="m-0 text-[15px] font-semibold text-ink">Installa VC Hair Studio</p>
+          <p className="mt-1 text-[13px] leading-5 text-muted">
+            {ios
+              ? "Su iPhone o iPad apri il menu Condividi di Safari e scegli «Aggiungi a Home». Le notifiche si attivano dopo l'installazione, da iOS 16.4."
+              : "Installa l'applicazione per aprire l'agenda dal telefono, anche a schermo intero."}
+          </p>
+        </div>
+        <button className="icon-btn is-soft" style={{ width: 32, height: 32 }} type="button" aria-label="Chiudi" onClick={dismiss}>
+          <X size={16} />
+        </button>
+      </div>
       <div className="mt-3 flex gap-2">
         {deferred ? (
-          <button
-            className="rounded-full bg-cocoa px-4 py-2 text-sm text-cream"
-            type="button"
-            onClick={() => void deferred.prompt()}
-          >
+          <button className="btn btn-primary btn-sm flex-1" type="button" onClick={() => void deferred.prompt()}>
             Installa l&apos;applicazione
           </button>
         ) : null}
-        <button
-          className="rounded-full px-4 py-2 text-sm"
-          type="button"
-          onClick={() => {
-            sessionStorage.setItem("vc-installazione-nascosta", "1");
-            setHidden(true);
-          }}
-        >
+        <button className="btn btn-soft btn-sm flex-1" type="button" onClick={dismiss}>
           Non ora
         </button>
       </div>

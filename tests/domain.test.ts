@@ -89,6 +89,6 @@ describe("presentazione", () => {
     expect(manifestData.lang).toBe("it");
     expect(manifestData.display).toBe("standalone");
     expect(manifestData.startUrl).toBe("/entra");
-    expect(manifestData.themeColor).toBe("#69423C");
+    expect(manifestData.themeColor).toBe("#5826B2");
   });
 });

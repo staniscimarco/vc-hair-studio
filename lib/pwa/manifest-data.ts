@@ -5,7 +5,7 @@ export const manifestData = {
   startUrl: "/entra",
   scope: "/",
   display: "standalone" as const,
-  backgroundColor: "#FFF8F4",
-  themeColor: "#69423C",
+  backgroundColor: "#FFFFFF",
+  themeColor: "#5826B2",
   lang: "it",
 };

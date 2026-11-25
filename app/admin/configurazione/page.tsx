@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { TitleHero } from "@/components/ui/app-header";
 
 const steps = [
   ["Dati del salone", "/admin/impostazioni"],
@@ -13,15 +15,19 @@ const steps = [
 
 export default function SetupPage() {
   return (
-    <section className="max-w-xl">
-      <h1 className="font-display text-5xl text-cocoa">Prima configurazione</h1>
-      <p className="mt-3 leading-7">Le prenotazioni pubbliche restano chiuse finché non segni la configurazione come completata e attivi le prenotazioni. Gli orari del salone non sono precompilati con un turno reale.</p>
-      <ol className="mt-6 grid gap-3">
+    <section>
+      <TitleHero
+        title="Prima configurazione"
+        back="/admin"
+        subtitle="Le prenotazioni pubbliche restano chiuse finché non segni la configurazione come completata e attivi le prenotazioni. Gli orari del salone non sono precompilati con un turno reale."
+      />
+      <ol className="mx-auto mt-6 grid max-w-2xl gap-3 p-0">
         {steps.map(([label, href], index) => (
-          <li key={label}>
-            <Link className="flex items-center justify-between rounded-3xl bg-white px-4 py-3" href={href}>
-              <span>{index + 1}. {label}</span>
-              <span>Apri</span>
+          <li key={label} className="list-none">
+            <Link className="pick-card" href={href} style={{ padding: 12 }}>
+              <span className="tile-icon is-primary" style={{ fontWeight: 600 }}>{index + 1}</span>
+              <span className="pick-main"><h3>{label}</h3></span>
+              <span className="round-arrow" aria-hidden><ArrowUpRight size={16} /></span>
             </Link>
           </li>
         ))}

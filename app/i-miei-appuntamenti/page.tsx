@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { formatDate, formatPrice, formatTime } from "@/lib/format";
+import { CalendarDays, CalendarPlus, Clock, Plus } from "lucide-react";
+import { TIME_ZONE } from "@/lib/availability/time";
+import { formatPrice, formatTime } from "@/lib/format";
+import { HeroIconLink, SectionHead, TitleHero } from "@/components/ui/app-header";
+import { ServiceIcon } from "@/components/ui/service-icon";
 
 type Row = {
   id: string;
@@ -33,6 +37,7 @@ export default function AppointmentsPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState("");
   const [clock, setClock] = useState<number | null>(null);
+  const [tab, setTab] = useState<"prossimi" | "storico">("prossimi");
 
   async function load() {
     const response = await fetch("/api/prenotazioni");
@@ -66,18 +71,42 @@ export default function AppointmentsPage() {
 
   return (
     <section className="app-screen">
-      <header className="app-hero">
-        <h1 className="font-display text-5xl text-cocoa">I miei appuntamenti</h1>
-        <Link className="cta" href="/prenota">Prenota</Link>
-      </header>
-      {error ? <p className="mt-6">{error}</p> : null}
-      {!rows ? <div className="mt-6 h-40 animate-pulse rounded-3xl bg-blush-soft" /> : null}
-      {rows ? (
+      <TitleHero
+        title="I miei appuntamenti"
+        back="/"
+        action={
+          <HeroIconLink href="/prenota" label="Nuova prenotazione" tone="white">
+            <Plus size={20} strokeWidth={2.2} />
+          </HeroIconLink>
+        }
+        subtitle="Tutti i tuoi appuntamenti in salone, a portata di mano."
+      />
+
+      <div className="chips mt-5" role="tablist" aria-label="Filtra appuntamenti">
+        <button role="tab" aria-selected={tab === "prossimi"} type="button" className={`chip ${tab === "prossimi" ? "is-on" : ""}`} onClick={() => setTab("prossimi")}>
+          Prossimi <span className="count">{future.length}</span>
+        </button>
+        <button role="tab" aria-selected={tab === "storico"} type="button" className={`chip ${tab === "storico" ? "is-on" : ""}`} onClick={() => setTab("storico")}>
+          Storico <span className="count">{past.length}</span>
+        </button>
+      </div>
+
+      {error ? (
+        <div className="empty-state mt-5">
+          <span className="tile-icon"><CalendarDays size={20} /></span>
+          {error}
+          <Link className="btn btn-primary btn-sm" href="/accesso?prossimo=/i-miei-appuntamenti">Accedi</Link>
+        </div>
+      ) : null}
+      {!rows ? <div className="mt-5 grid gap-3">{[0, 1].map((index) => <div key={index} className="skeleton" style={{ height: 130 }} />)}</div> : null}
+      {rows && !error ? (
         <>
-          <h2 className="mt-8 font-display text-3xl">Prossimi</h2>
-          <List rows={future} onCancel={cancel} empty="Non hai appuntamenti in programma." />
-          <h2 className="mt-8 font-display text-3xl">Storico</h2>
-          <List rows={past} empty="Lo storico è ancora vuoto." />
+          <SectionHead title={tab === "prossimi" ? "Prossimi" : "Storico"} href="/prenota" linkLabel="Prenota" />
+          {tab === "prossimi" ? (
+            <List rows={future} onCancel={cancel} empty="Non hai appuntamenti in programma." />
+          ) : (
+            <List rows={past} empty="Lo storico è ancora vuoto." />
+          )}
         </>
       ) : null}
     </section>
@@ -85,21 +114,52 @@ export default function AppointmentsPage() {
 }
 
 function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) => void; empty: string }) {
-  if (rows.length === 0) return <p className="mt-3 text-sm">{empty}</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="empty-state">
+        <span className="tile-icon"><CalendarDays size={20} /></span>
+        {empty}
+        {onCancel ? <Link className="btn btn-primary btn-sm" href="/prenota">Prenota ora</Link> : null}
+      </div>
+    );
+  }
   return (
-    <div className="mt-3 grid gap-3">
+    <div className="grid gap-3 lg:grid-cols-2">
       {rows.map((row) => {
-        const minutes = Math.round((new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) / 60000);
+        const start = new Date(row.starts_at);
+        const minutes = Math.round((new Date(row.ends_at).getTime() - start.getTime()) / 60000);
+        const statusClass = row.status === "cancelled" || row.status === "no_show" ? "is-cancelled" : row.status === "completed" ? "is-completed" : "is-confirmed";
         return (
-          <article key={row.id} className="rounded-3xl bg-white p-4 shadow-[var(--shadow)]">
-            <p className="font-display text-2xl">{serviceName(row)}</p>
-            <p>{formatDate(new Date(row.starts_at))} · {formatTime(new Date(row.starts_at))} · {minutes} minuti</p>
-            <p>{formatPrice(row.price_cents)}</p>
-            <p className="text-sm">Stato: {labels[row.status] ?? row.status} · Codice {row.code}</p>
-            <div className="mt-3 flex gap-3 text-sm">
-              <a href={`/api/calendario/${row.calendar_token}`}>Aggiungi al calendario</a>
+          <article key={row.id} className="salon-card" style={{ cursor: "default" }}>
+            <div className="flex gap-3">
+              <div className="grid w-[76px] flex-none place-items-center rounded-2xl bg-primary py-3 text-center text-white">
+                <span className="text-[11px] uppercase opacity-80">{new Intl.DateTimeFormat("it-IT", { month: "short", timeZone: TIME_ZONE }).format(start)}</span>
+                <strong className="text-2xl leading-none">{new Intl.DateTimeFormat("it-IT", { day: "numeric", timeZone: TIME_ZONE }).format(start)}</strong>
+                <span className="text-[11px] capitalize opacity-80">{new Intl.DateTimeFormat("it-IT", { weekday: "short", timeZone: TIME_ZONE }).format(start)}</span>
+              </div>
+              <div className="min-w-0 flex-1 py-1">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="m-0 text-base">{serviceName(row)}</h3>
+                  <span className={`status-pill ${statusClass}`}>{labels[row.status] ?? row.status}</span>
+                </div>
+                <p className="mt-1 flex items-center gap-1 text-[13px] text-[#3d3b47]">
+                  <Clock size={13} /> {formatTime(start)} · {minutes} minuti
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[15px] font-bold">{row.price_cents == null ? "Da concordare" : formatPrice(row.price_cents)}</span>
+                  <span className="text-[11px] text-muted">Codice {row.code}</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2 px-1 pb-1">
+              <a className="btn btn-white btn-xs flex-1" href={`/api/calendario/${row.calendar_token}`}>
+                <CalendarPlus size={14} /> Aggiungi al calendario
+              </a>
               {onCancel && row.status === "confirmed" ? (
-                <button type="button" className="underline" onClick={() => onCancel(row.id)}>Annulla</button>
+                <button type="button" className="btn btn-danger btn-xs" onClick={() => onCancel(row.id)}>Annulla</button>
+              ) : null}
+              {!onCancel ? (
+                <Link className="btn btn-accent btn-xs" href="/prenota"><ServiceIcon name={serviceName(row)} size={13} /> Prenota di nuovo</Link>
               ) : null}
             </div>
           </article>

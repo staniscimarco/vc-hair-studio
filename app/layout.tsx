@@ -1,19 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Inter } from "next/font/google";
+import { Lexend } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
-import { CustomerTabBar } from "@/components/nav/customer-tab-bar";
+import { CustomerTabBar, CustomerTopNav } from "@/components/nav/customer-tab-bar";
 import { InstallHint } from "@/components/pwa/install-hint";
 
-const display = Cormorant_Garamond({
+const lexend = Lexend({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-});
-
-const sans = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-lexend",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +16,7 @@ export const metadata: Metadata = {
   description: "La bellezza dei tuoi capelli inizia da qui. Prenota il tuo prossimo appuntamento.",
   applicationName: "VC Hair Studio",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "VC Hair Studio", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "VC Hair Studio", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
@@ -32,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFF8F4",
+  themeColor: "#5826B2",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -40,11 +35,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it" className={`${display.variable} ${sans.variable}`}>
+    <html lang="it" className={lexend.variable}>
       <body className="min-h-screen antialiased">
         <a className="skip-link" href="#contenuto">
           Vai al contenuto
         </a>
+        <CustomerTopNav />
         <main id="contenuto">{children}</main>
         <CustomerTabBar />
         <InstallHint />
