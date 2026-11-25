@@ -70,9 +70,9 @@ async function markSignupHandled(profileId: string) {
 }
 
 /** Approva la cliente: da ora può prenotare. Riceve una notifica nel suo centro e sul telefono. */
-export async function approveProfile(profileId: string) {
+export async function approveProfile(profileId: string): Promise<{ ok: boolean; dispositivi: number }> {
   const admin = createAdminSupabase();
-  if (!admin) return false;
+  if (!admin) return { ok: false, dispositivi: 0 };
   const { data, error } = await admin
     .from("profiles")
     .update({ approved_at: new Date().toISOString() })
@@ -80,7 +80,7 @@ export async function approveProfile(profileId: string) {
     .is("approved_at", null)
     .select("id")
     .maybeSingle();
-  if (error || !data) return false;
+  if (error || !data) return { ok: false, dispositivi: 0 };
   const payload = {
     title: "Il tuo profilo è attivo ✨",
     body: "Benvenuta da VC Hair Studio! Ora puoi prenotare il tuo appuntamento quando vuoi.",
@@ -88,9 +88,21 @@ export async function approveProfile(profileId: string) {
   };
   await admin.from("customer_notifications").insert({ profile_id: profileId, ...payload });
   const devices = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth_key").eq("profile_id", profileId).is("disabled_at", null);
-  await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: `profilo-${profileId}` });
+  const sent = await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: `profilo-${profileId}` });
+  // Anche un'e-mail: arriva pure a chi non ha attivato le notifiche.
+  const profile = await admin.from("profiles").select("email").eq("id", profileId).maybeSingle();
+  if (profile.data?.email) {
+    await admin.from("email_logs").insert({
+      kind: "profilo_approvato",
+      to_email: profile.data.email,
+      subject: "Il tuo profilo VC Hair Studio è attivo: ora puoi prenotare",
+      status: "pending",
+      dedupe_key: `approvato:${profileId}`,
+    });
+    await dispatchNow();
+  }
   await markSignupHandled(profileId);
-  return true;
+  return { ok: true, dispositivi: sent };
 }
 
 /**

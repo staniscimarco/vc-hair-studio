@@ -68,7 +68,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
     const response = await fetch(`/api/admin/agenda?da=${encodeURIComponent(from)}&a=${encodeURIComponent(to)}`);
     const body = await response.json();
     if (!response.ok) {
-      toast.error(body.errore || "Agenda non disponibile.");
+      toast.error(body.errore || "Agenda non disponibile.", { id: "agenda-caricamento" });
       return;
     }
     const appointments = (body.appuntamenti as Appointment[]).map((item) => {

@@ -33,7 +33,7 @@ export function NotificationPrompt() {
     let timer: number | undefined;
     void fetch("/api/sessione")
       .then((response) => response.json())
-      .then((session: { autenticato: boolean; ruolo: "admin" | "customer" | null }) => {
+      .then((session: { autenticato: boolean; ruolo: "admin" | "customer" | null; approvato?: boolean }) => {
         if (cancelled || !session.autenticato) return;
         const current = session.autenticato && session.ruolo === "admin" ? "admin" : "customer";
         setRole(current);
@@ -53,7 +53,8 @@ export function NotificationPrompt() {
         const standalone =
           window.matchMedia("(display-mode: standalone)").matches ||
           (navigator as Navigator & { standalone?: boolean }).standalone === true;
-        if (!standalone && current !== "admin") return;
+        // Nel browser la chiediamo all'admin e a chi aspetta l'approvazione (così sa quando può prenotare).
+        if (!standalone && current !== "admin" && session.approvato !== false) return;
         // Aspetta che lo splash e l'eventuale popup di installazione siano chiusi.
         const tryOpen = () => {
           if (cancelled) return;

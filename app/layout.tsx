@@ -52,7 +52,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PullToRefresh />
         <ServiceWorkerBridge />
         <Splash />
-        <Toaster position="top-center" richColors />
+        <Toaster
+          position="top-center"
+          richColors
+          expand
+          closeButton
+          visibleToasts={3}
+          duration={4500}
+          offset={{ top: "calc(env(safe-area-inset-top) + 14px)" }}
+          mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)", left: "12px", right: "12px" }}
+          toastOptions={{ className: "vc-toast" }}
+        />
       </body>
     </html>
   );

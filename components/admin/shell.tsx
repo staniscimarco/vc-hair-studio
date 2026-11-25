@@ -10,12 +10,11 @@ import {
   Bell,
   CalendarDays,
   CalendarPlus,
-  ChevronRight,
   House,
   ListChecks,
-  Plus,
   Scissors,
   LayoutGrid,
+  Plus,
   LogOut,
   Settings,
   ShieldCheck,
@@ -59,6 +58,7 @@ const groups: { label: string; items: MenuItem[] }[] = [
   },
 ];
 
+
 const quick = [
   { href: "/admin/appuntamenti", label: "Nuovo appuntamento", hint: "Telefonate e richieste in salone", icon: CalendarPlus },
   { href: "/admin/disponibilita", label: "Blocca disponibilità", hint: "Pause, ferie e chiusure", icon: Ban },
@@ -73,46 +73,14 @@ function isCurrent(pathname: string, href: string) {
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { count: unread } = useUnreadCount();
-  const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
   const inMenu = !tabs.some((item) => isCurrent(pathname, item.href));
   return (
     <div className="admin-frame">
 
       <div className="app-screen">{children}</div>
 
-      <button className="fab" type="button" aria-label="Azioni rapide" onClick={() => setOpen(true)}>
-        <Plus size={26} />
-      </button>
-      {open ? (
-        <>
-          <button className="sheet-scrim" type="button" aria-label="Chiudi azioni" onClick={() => setOpen(false)} />
-          <div className="sheet-panel" role="dialog" aria-label="Azioni rapide">
-            <div className="sheet-handle" />
-            <div className="flex items-center justify-between">
-              <h2>Azioni rapide</h2>
-              <button className="icon-btn is-soft" style={{ width: 36, height: 36 }} type="button" aria-label="Chiudi" onClick={() => setOpen(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-2">
-              {quick.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link key={item.label} className="list-row" href={item.href} onClick={() => setOpen(false)}>
-                    <span className="tile-icon"><Icon size={19} /></span>
-                    <span className="grow">
-                      {item.label}
-                      <small className="block text-xs font-normal text-muted">{item.hint}</small>
-                    </span>
-                    <ChevronRight size={18} className="text-muted" />
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      ) : null}
       {menu ? (
         <>
           <button className="sheet-scrim" type="button" aria-label="Chiudi menu" onClick={() => setMenu(false)} />
@@ -170,16 +138,53 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </button>
       </nav>
       {/* Telefono: quattro voci principali + Menu con tutto il resto. */}
+      {quickOpen ? (
+        <>
+          <button className="sheet-scrim" type="button" aria-label="Chiudi azioni" onClick={() => setQuickOpen(false)} />
+          <div className="sheet-panel menu-sheet" role="dialog" aria-label="Azioni rapide">
+            <div className="sheet-handle" />
+            <div className="flex items-center justify-between">
+              <h2>Azioni rapide</h2>
+              <button className="icon-btn is-soft" style={{ width: 36, height: 36 }} type="button" aria-label="Chiudi" onClick={() => setQuickOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-2">
+              {quick.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.label} className="list-row" href={item.href} onClick={() => setQuickOpen(false)}>
+                    <span className="tile-icon"><Icon size={19} /></span>
+                    <span className="grow">
+                      {item.label}
+                      <small className="block text-xs font-normal text-muted">{item.hint}</small>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : null}
       <nav className="tabbar admin-bar-mobile" aria-label="Navigazione amministratore">
-        {tabs.map((item) => {
+        {tabs.flatMap((item, index) => {
           const Icon = item.icon;
-          return (
+          const link = (
             <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined} className="relative">
               <Icon size={23} strokeWidth={1.7} className={item.icon === House ? "tab-fill" : undefined} />
               {item.href === "/admin/notifiche" ? <CountBadge count={unread} className="on-tab" /> : null}
               {item.label}
             </Link>
           );
+          // Il + sta al centro della barra: non copre mai i contenuti della pagina.
+          return index === 2
+            ? [
+                <button key="azioni" type="button" className="tab-plus" aria-label="Azioni rapide" onClick={() => setQuickOpen(true)}>
+                  <span><Plus size={26} strokeWidth={2.4} /></span>
+                </button>,
+                link,
+              ]
+            : [link];
         })}
         <button type="button" className="tab-button" aria-current={inMenu || menu ? "page" : undefined} onClick={() => setMenu(true)}>
           <LayoutGrid size={23} strokeWidth={1.7} />

@@ -50,6 +50,11 @@ export async function PUT(request: Request) {
     };
     const { data, error } = await admin.from("profiles").update(values).eq("id", user.id).select("id").maybeSingle();
     if (error) return NextResponse.json({ errore: "Non è stato possibile salvare il profilo. Riprova." }, { status: 500 });
+    // Aggiorna anche la scheda cliente vista dal salone (telefono e indirizzo).
+    await admin
+      .from("customers")
+      .update({ first_name: values.first_name, last_name: values.last_name, phone: values.phone, address: values.address })
+      .eq("profile_id", user.id);
     if (!data) {
       // Profilo mancante (es. creato prima dell'aggiornamento): lo crea ora.
       const created = await admin.from("profiles").insert({ id: user.id, role: "customer", email: user.email ?? "", ...values }).select("id").maybeSingle();

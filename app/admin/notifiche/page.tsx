@@ -38,7 +38,8 @@ export default function NotificationsPage() {
     const response = await fetch("/api/admin/notifiche");
     const body = await response.json();
     if (!response.ok) {
-      toast.error(body.errore);
+      // Stesso id: l'aggiornamento automatico non ripete il messaggio.
+      toast.error(body.errore, { id: "notifiche-caricamento" });
       return;
     }
     setDevices(body.dispositivi ?? []);

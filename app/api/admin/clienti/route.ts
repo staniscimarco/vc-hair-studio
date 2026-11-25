@@ -23,14 +23,27 @@ export async function GET(request: Request) {
     // Stato di approvazione dei profili registrati online.
     const profileIds = rows.map((row) => row.profile_id).filter(Boolean) as string[];
     const approvals = new Map<string, string | null>();
+    const details = new Map<string, { phone?: string; address?: string; email?: string }>();
     if (profileIds.length) {
-      const profiles = await admin.from("profiles").select("id, approved_at").in("id", profileIds);
-      if (!profiles.error) for (const row of profiles.data ?? []) approvals.set(String(row.id), (row as { approved_at?: string | null }).approved_at ?? null);
+      const profiles = await admin.from("profiles").select("id, approved_at, phone, address, email").in("id", profileIds);
+      if (!profiles.error) {
+        for (const row of (profiles.data ?? []) as { id: string; approved_at?: string | null; phone?: string; address?: string; email?: string }[]) {
+          approvals.set(String(row.id), row.approved_at ?? null);
+          details.set(String(row.id), row);
+        }
+      }
     }
-    const clienti = rows.map((row) => ({
-      ...row,
-      in_attesa: Boolean(row.profile_id && approvals.has(String(row.profile_id)) && !approvals.get(String(row.profile_id))),
-    }));
+    const clienti = rows.map((row) => {
+      // Telefono e indirizzo: dalla scheda o, se mancano, dal profilo (es. registrazioni con Google).
+      const profile = row.profile_id ? details.get(String(row.profile_id)) : undefined;
+      return {
+        ...row,
+        phone: row.phone || profile?.phone || null,
+        address: row.address || profile?.address || null,
+        email: row.email || profile?.email || null,
+        in_attesa: Boolean(row.profile_id && approvals.has(String(row.profile_id)) && !approvals.get(String(row.profile_id))),
+      };
+    });
     return NextResponse.json({ clienti });
   } catch (error) {
     return jsonError(error);
@@ -45,9 +58,9 @@ export async function PATCH(request: Request) {
     if (body.azione === "approva" && body.id) {
       const customer = await admin.from("customers").select("profile_id").eq("id", body.id).maybeSingle();
       if (!customer.data?.profile_id) return NextResponse.json({ errore: "Questa scheda non ha un account da approvare." }, { status: 400 });
-      const ok = await approveProfile(String(customer.data.profile_id));
-      if (!ok) return NextResponse.json({ errore: "Profilo già approvato o non trovato." }, { status: 409 });
-      return NextResponse.json({ ok: true });
+      const result = await approveProfile(String(customer.data.profile_id));
+      if (!result.ok) return NextResponse.json({ errore: "Profilo già approvato o non trovato." }, { status: 409 });
+      return NextResponse.json({ ok: true, dispositivi: result.dispositivi });
     }
     if (body.azione === "anonimizza") {
       const { error } = await admin.from("customers").update({

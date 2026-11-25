@@ -5,6 +5,7 @@ import { sameOrigin } from "@/lib/security/http";
 import { cancelAppointment, createManualBooking, decideAppointment, rescheduleAppointment } from "@/lib/server/bookings";
 import { notifyCustomerByAppointment, notifyCustomerProfile } from "@/lib/server/notices";
 import { formatDateLong, formatTime } from "@/lib/format";
+import { fullAddress } from "@/lib/validators";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
 import { loadService } from "@/lib/server/schedule";
 
@@ -37,6 +38,7 @@ const createSchema = z.object({
     cognome: z.string().min(2),
     email: z.string().optional(),
     telefono: z.string().optional(),
+    indirizzo: z.string().optional(),
   }).nullable(),
   servizioId: z.string().uuid(),
   inizio: z.string().datetime(),
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
         last_name: parsed.data.nuovoCliente.cognome,
         email: parsed.data.nuovoCliente.email || null,
         phone: parsed.data.nuovoCliente.telefono || null,
+        address: parsed.data.nuovoCliente.indirizzo ? fullAddress(parsed.data.nuovoCliente.indirizzo) : "",
       }).select("id").single();
       if (created.error || !created.data) return NextResponse.json({ errore: "Non è stato possibile creare la scheda cliente." }, { status: 500 });
       customerId = created.data.id;

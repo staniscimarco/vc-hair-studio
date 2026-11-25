@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, Download, EyeOff, MessageCircle, Phone, Trash2, UserCheck, Users } from "lucide-react";
+import { Archive, ArchiveRestore, Download, EyeOff, Mail, MapPin, MessageCircle, Phone, Trash2, UserCheck, Users } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { notifyLive } from "@/lib/live";
 import { SearchBar, SectionHead, TitleHero } from "@/components/ui/app-header";
@@ -15,6 +15,7 @@ type Customer = {
   phone: string | null;
   notes: string | null;
   archived_at: string | null;
+  address?: string | null;
   in_attesa?: boolean;
 };
 
@@ -63,7 +64,11 @@ export default function CustomersPage() {
     const body = await response.json().catch(() => ({}));
     setBusy(null);
     if (!response.ok) return toast.error(body.errore ?? "Approvazione non riuscita.");
-    toast.success(`${row.first_name} è stata approvata: ora può prenotare.`);
+    toast.success(
+      body.dispositivi > 0
+        ? `${row.first_name} è stata approvata: notifica inviata sul suo telefono.`
+        : `${row.first_name} è stata approvata. Non ha attivato le notifiche: le abbiamo scritto via e-mail.`,
+    );
     notifyLive();
     await load();
   }
@@ -122,11 +127,13 @@ export default function CustomersPage() {
           const initials = `${row.first_name.charAt(0)}${row.last_name.charAt(0)}`.toUpperCase();
           return (
             <article key={row.id} className="salon-card" style={{ cursor: "default", padding: 14 }}>
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 <span className="tile-icon is-primary" style={{ width: 52, height: 52, fontWeight: 600 }}>{initials || "?"}</span>
                 <div className="min-w-0 flex-1">
                   <h3 className="m-0 truncate text-base">{row.first_name} {row.last_name} {row.in_attesa ? <span className="status-pill is-pending ml-1 align-middle">Da approvare</span> : null}</h3>
-                  <p className="m-0 truncate text-[13px] text-[#3d3b47]">{[row.email, row.phone].filter(Boolean).join(" · ") || "Nessun contatto"}</p>
+                  {row.email ? <p className="m-0 flex items-center gap-1.5 truncate text-[13px] text-[#3d3b47]"><Mail size={13} className="flex-none" /> {row.email}</p> : null}
+                  <p className="m-0 mt-0.5 flex items-center gap-1.5 text-[13px] text-[#3d3b47]"><Phone size={13} className="flex-none" /> {row.phone || <span className="text-muted">Telefono non indicato</span>}</p>
+                  <p className="m-0 mt-0.5 flex items-center gap-1.5 text-[13px] text-[#3d3b47]"><MapPin size={13} className="flex-none" /> {row.address || <span className="text-muted">Indirizzo non indicato</span>}</p>
                   {digits && phones.get(digits)! > 1 ? <span className="status-pill is-cancelled mt-1">Possibile duplicato per telefono</span> : null}
                 </div>
               </div>
@@ -143,6 +150,7 @@ export default function CustomersPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {row.phone ? <a className="btn btn-primary btn-xs" href={`tel:${row.phone}`}><Phone size={13} /> Chiama</a> : null}
                 {wa ? <a className="btn btn-accent btn-xs" href={wa} target="_blank" rel="noreferrer"><MessageCircle size={13} /> WhatsApp</a> : null}
+                {row.address ? <a className="btn btn-white btn-xs" href={`https://maps.apple.com/?daddr=${encodeURIComponent(row.address)}`} target="_blank" rel="noreferrer"><MapPin size={13} /> Itinerario</a> : null}
                 <button className="btn btn-white btn-xs" type="button" onClick={async () => {
                   await fetch("/api/admin/clienti", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: row.id, archiviata: !row.archived_at, nome: row.first_name, cognome: row.last_name, email: row.email, telefono: row.phone, note: row.notes }) });
                   await load();
