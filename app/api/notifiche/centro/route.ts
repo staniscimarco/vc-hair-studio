@@ -43,6 +43,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ elementi, nonLette: unread.count ?? 0, ruolo: "admin" });
     }
 
+    // Le notifiche sono solo per chi ha fatto l'accesso.
+    if (!user) return NextResponse.json({ elementi: [], nonLette: 0, ruolo: null });
+
     const localSeen = url.searchParams.get("visto");
     const seen = [seenAt, localSeen && !Number.isNaN(Date.parse(localSeen)) ? localSeen : null]
       .filter(Boolean)

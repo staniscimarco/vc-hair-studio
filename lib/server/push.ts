@@ -19,11 +19,6 @@ export async function subscriptionsFor(admin: Admin, role: "admin" | "customer")
   const profiles = await admin.from("profiles").select("id").eq("role", role);
   const ids = (profiles.data ?? []).map((row) => row.id as string);
   const found: Subscription[] = [];
-  if (role === "customer") {
-    // Dispositivi di chi ha installato l'app senza accedere: ricevono posti liberi e offerte.
-    const anonymous = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth_key").is("profile_id", null).is("disabled_at", null);
-    found.push(...((anonymous.data ?? []) as Subscription[]));
-  }
   for (let index = 0; index < ids.length; index += 200) {
     const { data } = await admin
       .from("push_subscriptions")

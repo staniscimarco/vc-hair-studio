@@ -72,7 +72,7 @@ function isCurrent(pathname: string, href: string) {
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const unread = useUnreadCount();
+  const { count: unread } = useUnreadCount();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const inMenu = !tabs.some((item) => isCurrent(pathname, item.href));

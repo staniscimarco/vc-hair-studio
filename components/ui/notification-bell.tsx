@@ -10,11 +10,15 @@ import { localSeen, useLive } from "@/lib/live";
 export function useUnreadCount() {
   const pathname = usePathname();
   const [count, setCount] = useState(0);
+  const [logged, setLogged] = useState(false);
 
   const load = useCallback(() => {
     void fetch(`/api/notifiche/centro?conteggio=1&visto=${encodeURIComponent(localSeen())}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : { nonLette: 0 }))
-      .then((body) => setCount(Number(body.nonLette ?? 0)))
+      .then((response) => (response.ok ? response.json() : { nonLette: 0, ruolo: null }))
+      .then((body) => {
+        setCount(Number(body.nonLette ?? 0));
+        setLogged(Boolean(body.ruolo));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -30,7 +34,7 @@ export function useUnreadCount() {
     else void nav.clearAppBadge?.().catch(() => undefined);
   }, [count]);
 
-  return count;
+  return { count, logged };
 }
 
 export function CountBadge({ count, className = "" }: { count: number; className?: string }) {
@@ -40,7 +44,9 @@ export function CountBadge({ count, className = "" }: { count: number; className
 
 /** Campanella con il numero delle notifiche non lette; sparisce quando le leggi. */
 export function NotificationBell({ href, tone = "white" }: { href: string; tone?: "white" | "soft" }) {
-  const count = useUnreadCount();
+  const { count, logged } = useUnreadCount();
+  // Solo chi ha fatto l'accesso ha le notifiche.
+  if (!logged) return null;
   const label = count ? `Notifiche, ${count} non lette` : "Notifiche";
   return (
     <Link href={href} aria-label={label} title={label} className={`icon-btn ${tone === "white" ? "is-white" : "is-soft"}`}>

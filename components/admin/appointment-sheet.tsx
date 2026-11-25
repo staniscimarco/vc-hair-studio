@@ -95,7 +95,13 @@ export function AppointmentSheet({
     if (next === status) return;
     if (await patch({ stato: next }, next)) {
       setStatus(next);
-      toast.success(next === "cancelled" ? "Appuntamento annullato: la cliente è stata avvisata." : `Stato: ${statusLabels[next]}.`);
+      toast.success(
+        status === "pending"
+          ? next === "confirmed" ? "Prenotazione accettata: la cliente è stata avvisata." : "Richiesta rifiutata: la cliente è stata avvisata."
+          : next === "cancelled" ? "Appuntamento annullato: la cliente è stata avvisata." : `Stato: ${statusLabels[next]}.`,
+      );
+      // Dopo accetta, rifiuta o annulla la finestra si chiude; per gli altri stati resta aperta.
+      if (status === "pending" || next === "cancelled") onClose();
     }
   }
 

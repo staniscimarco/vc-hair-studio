@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     // L'accesso è facoltativo: chi non ha un profilo riceve solo posti liberi e offerte.
     const supabase = await createServerSupabase();
     const user = supabase ? (await supabase.auth.getUser()).data.user : null;
+    if (!user) return NextResponse.json({ errore: "Accedi per attivare le notifiche." }, { status: 401 });
     const admin = createAdminSupabase();
     if (!admin) return NextResponse.json({ errore: "Il salone non è ancora collegato." }, { status: 503 });
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "sconosciuto";

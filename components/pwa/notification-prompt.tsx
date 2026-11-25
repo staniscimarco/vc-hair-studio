@@ -34,8 +34,7 @@ export function NotificationPrompt() {
     void fetch("/api/sessione")
       .then((response) => response.json())
       .then((session: { autenticato: boolean; ruolo: "admin" | "customer" | null }) => {
-        if (cancelled) return;
-        // Anche senza accesso: chi installa l'app riceve posti liberi e offerte.
+        if (cancelled || !session.autenticato) return;
         const current = session.autenticato && session.ruolo === "admin" ? "admin" : "customer";
         setRole(current);
         if (Notification.permission === "granted") {
