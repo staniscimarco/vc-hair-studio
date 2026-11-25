@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, CalendarCheck, Clock, CreditCard, Heart, Sparkles, Star, Tag, Timer } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Clock, Heart, MapPinHouse, Sparkles, Star, Tag, Timer } from "lucide-react";
 import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { ServiceArt, shortDuration } from "@/components/ui/service-icon";
@@ -18,8 +18,8 @@ type Service = {
 };
 
 const reasons = [
-  { icon: Timer, title: "Prenoti in 1 minuto", text: "Scegli trattamento e orario, quando vuoi, anche di notte." },
-  { icon: CreditCard, title: "Paghi in salone", text: "Nessun pagamento online: saldi solo a fine trattamento." },
+  { icon: Timer, title: "Prenoti in 1 minuto", text: "Scegli trattamento e orario, quando vuoi." },
+  { icon: MapPinHouse, title: "Il salone viene da te", text: "Servizio a domicilio a Brindisi: ti coccoliamo comodamente a casa tua." },
   { icon: Star, title: "Prodotti professionali", text: "Cura e attenzione su misura per i tuoi capelli." },
 ];
 
