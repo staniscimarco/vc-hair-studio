@@ -60,7 +60,7 @@ export function TitleHero({
   children,
 }: {
   title: string;
-  back?: string | true;
+  back?: string | true | (() => void);
   action?: ReactNode;
   subtitle?: string;
   children?: ReactNode;
@@ -68,7 +68,15 @@ export function TitleHero({
   return (
     <header className="hero">
       <div className="hero-title">
-        {back ? <BackButton href={back === true ? undefined : back} /> : <span />}
+        {typeof back === "function" ? (
+          <button className="icon-btn is-white" type="button" aria-label="Indietro" onClick={back}>
+            <ArrowLeft size={20} strokeWidth={2} />
+          </button>
+        ) : back ? (
+          <BackButton href={back === true ? undefined : back} />
+        ) : (
+          <span />
+        )}
         <h1>{title}</h1>
         {action ?? <span />}
       </div>

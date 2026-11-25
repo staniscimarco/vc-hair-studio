@@ -7,8 +7,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { SocialButtons } from "@/components/auth/social-buttons";
 import { safeNext } from "@/lib/security/http";
-import { loginSchema, recoverySchema, registrationSchema } from "@/lib/validators";
+import { fullAddress, loginSchema, recoverySchema, registrationSchema } from "@/lib/validators";
+import { AddressField } from "@/components/auth/address-field";
 
 export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupero" | "nuova-password" }) {
   const router = useRouter();
@@ -37,7 +39,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
       });
       const body = await response.json();
       if (!response.ok) {
-        toast.error(body.errore || "E-mail o parola d'ordine non corrette.");
+        toast.error(body.errore || "E-mail o password non corrette.");
         setPending(false);
         return;
       }
@@ -76,6 +78,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
         cognome: formData.get("cognome"),
         email: formData.get("email"),
         telefono: formData.get("telefono"),
+        indirizzo: formData.get("indirizzo"),
         password: formData.get("password"),
         privacy: formData.get("privacy") === "on",
       });
@@ -93,6 +96,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
             first_name: parsed.data.nome,
             last_name: parsed.data.cognome,
             phone: parsed.data.telefono,
+            address: fullAddress(parsed.data.indirizzo),
             privacy_accepted: "true",
           },
         },
@@ -111,19 +115,19 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
         redirectTo: `${window.location.origin}/auth/callback?next=/aggiorna-password`,
       });
       if (error) toast.error("Non è stato possibile inviare il messaggio.");
-      else setMessage("Se l'indirizzo è registrato, riceverai un messaggio per scegliere una nuova parola d'ordine.");
+      else setMessage("Se l'indirizzo è registrato, riceverai un messaggio per scegliere una nuova password.");
     }
     if (mode === "nuova-password") {
       const password = String(formData.get("password") ?? "");
       if (password.length < 8) {
-        toast.error("La parola d'ordine deve contenere almeno 8 caratteri.");
+        toast.error("La password deve contenere almeno 8 caratteri.");
         setPending(false);
         return;
       }
       const { error } = await supabase.auth.updateUser({ password });
-      if (error) toast.error("Non è stato possibile aggiornare la parola d'ordine.");
+      if (error) toast.error("Non è stato possibile aggiornare la password.");
       else {
-        toast.success("Parola d'ordine aggiornata.");
+        toast.success("password aggiornata.");
         router.push("/profilo");
       }
     }
@@ -146,10 +150,10 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   }
 
   const copy = {
-    accesso: { title: "Accedi", lead: "Bentornata! Accedi per prenotare e gestire i tuoi appuntamenti in salone." },
+    accesso: { title: "Accedi", lead: "Bentornata! Accedi con Google, Apple o e-mail per prenotare e gestire i tuoi appuntamenti." },
     registrazione: { title: "Crea il tuo profilo", lead: "Pochi dati e potrai prenotare il tuo prossimo appuntamento in un minuto." },
-    recupero: { title: "Recupera l'accesso", lead: "Inserisci la tua e-mail: ti invieremo un messaggio per scegliere una nuova parola d'ordine." },
-    "nuova-password": { title: "Nuova parola d'ordine", lead: "Scegli una parola d'ordine di almeno 8 caratteri." },
+    recupero: { title: "Recupera l'accesso", lead: "Inserisci la tua e-mail: ti invieremo un messaggio per scegliere una nuova password." },
+    "nuova-password": { title: "Nuova password", lead: "Scegli una password di almeno 8 caratteri." },
   }[mode];
   const step = { accesso: 0, registrazione: 1, recupero: 2, "nuova-password": 2 }[mode];
 
@@ -174,6 +178,15 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
             {[0, 1, 2].map((index) => <span key={index} className={index === step ? "is-on" : ""} />)}
           </div>
           {message ? <p className="card-soft mt-4 text-sm leading-6">{message}</p> : null}
+          {!mfa && (mode === "accesso" || mode === "registrazione") ? (
+            <div className="mt-6 grid gap-3">
+              <SocialButtons next={next} label={mode === "accesso" ? "Accedi" : "Registrati"} />
+              <p className="note m-0 text-center lg:text-left">
+                Continuando con Google o Apple accetti l&apos;<Link className="font-medium text-primary-strong" href="/privacy">informativa sulla privacy</Link>.
+              </p>
+              <div className="divider">oppure con e-mail</div>
+            </div>
+          ) : null}
           {mfa ? (
             <form className="mt-6 grid gap-3" action={verifyMfa}>
               <label className="field">
@@ -183,21 +196,22 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
               <button className="btn btn-primary btn-block" type="submit">Verifica</button>
             </form>
           ) : (
-            <form className="mt-6 grid gap-3" action={onSubmit}>
+            <form className={`${mode === "accesso" || mode === "registrazione" ? "mt-2" : "mt-6"} grid gap-3`} action={onSubmit}>
               {mode === "registrazione" ? (
                 <div className="field-grid cols-2">
                   <Field name="nome" label="Nome" />
                   <Field name="cognome" label="Cognome" />
                 </div>
               ) : null}
-              {mode === "registrazione" ? <Field name="telefono" label="Telefono" /> : null}
+              {mode === "registrazione" ? <Field name="telefono" label="Telefono" type="tel" autoComplete="tel" /> : null}
+              {mode === "registrazione" ? <AddressField /> : null}
               {mode === "accesso" ? <Field name="email" label="E-mail o nome utente" type="text" autoComplete="username" /> : null}
               {mode === "registrazione" || mode === "recupero" ? <Field name="email" label="E-mail" type="email" /> : null}
               {mode !== "recupero" ? (
-                <Field name="password" label="Parola d'ordine" type="password" autoComplete={mode === "accesso" ? "current-password" : "new-password"} />
+                <Field name="password" label="password" type="password" autoComplete={mode === "accesso" ? "current-password" : "new-password"} />
               ) : null}
               {mode === "accesso" ? (
-                <Link className="justify-self-end text-[13px] font-medium text-primary-strong no-underline" href="/recupero-password">Hai dimenticato la parola d&apos;ordine?</Link>
+                <Link className="justify-self-end text-[13px] font-medium text-primary-strong no-underline" href="/recupero-password">Hai dimenticato la password?</Link>
               ) : null}
               {mode === "registrazione" ? (
                 <label className="flex items-start gap-2 text-sm">

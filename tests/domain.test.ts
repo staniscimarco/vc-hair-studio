@@ -12,6 +12,7 @@ describe("registrazione e accesso", () => {
     cognome: "Rossi",
     email: "maria@example.com",
     telefono: "+39 333 1234567",
+    indirizzo: "Via Roma 12",
     password: "Capelli2026",
     privacy: true as const,
   };
@@ -20,13 +21,13 @@ describe("registrazione e accesso", () => {
     expect(registrationSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rifiuta privacy non accettata, e-mail e parola d'ordine deboli", () => {
+  it("rifiuta privacy non accettata, e-mail e password deboli", () => {
     expect(registrationSchema.safeParse({ ...valid, privacy: false }).success).toBe(false);
     expect(registrationSchema.safeParse({ ...valid, email: "non-valida" }).success).toBe(false);
     expect(registrationSchema.safeParse({ ...valid, password: "solo lettere" }).success).toBe(false);
   });
 
-  it("valida accesso e recupero parola d'ordine", () => {
+  it("valida accesso e recupero password", () => {
     expect(loginSchema.safeParse({ email: "maria@example.com", password: "x" }).success).toBe(true);
     expect(loginSchema.safeParse({ email: "admin", password: "x" }).success).toBe(true);
     expect(recoverySchema.safeParse({ email: "maria@example.com" }).success).toBe(true);

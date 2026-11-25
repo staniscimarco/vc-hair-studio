@@ -74,7 +74,33 @@ async function schemaAlreadyPresent(): Promise<boolean> {
 }
 
 async function applyIfNeeded() {
-  if (await schemaAlreadyPresent()) return;
+  if (!(await schemaAlreadyPresent())) await applyBase();
+  await applyExtras();
+}
+
+async function extrasPresent(): Promise<boolean> {
+  const admin = createAdminSupabase();
+  if (!admin) return false;
+  const probe = await admin.from("broadcasts").select("id").limit(1);
+  return !probe.error;
+}
+
+/** Migrazioni aggiuntive idempotenti (promozioni, notifiche alle clienti). */
+async function applyExtras() {
+  if (await extrasPresent()) return;
+  await withDatabase(async (client) => {
+    await client.query("select pg_advisory_lock(8042002)");
+    try {
+      const sql = readFileSync(join(process.cwd(), "supabase/migrations/0002_promozioni_notifiche.sql"), "utf8");
+      await client.query(sql);
+      await client.query("notify pgrst, 'reload schema'");
+    } finally {
+      await client.query("select pg_advisory_unlock(8042002)");
+    }
+  });
+}
+
+async function applyBase() {
   await withDatabase(async (client) => {
     await client.query("select pg_advisory_lock(8042001)");
     try {

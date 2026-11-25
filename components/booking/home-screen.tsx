@@ -3,10 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Bell, Clock, Heart, Sparkles } from "lucide-react";
-import { formatPrice } from "@/lib/format";
-import { GreetingHero, HeroIconLink, SearchBar, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
-import { ServiceIcon, shortDuration } from "@/components/ui/service-icon";
+import { ArrowUpRight, Bell, CalendarCheck, Clock, CreditCard, Heart, Sparkles, Star, Tag, Timer } from "lucide-react";
+import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
+import { ServiceArt, ServiceIcon, shortDuration } from "@/components/ui/service-icon";
+import { Price, promoFor, type PublicPromo } from "@/components/ui/price";
 
 type Service = {
   id: string;
@@ -16,11 +16,17 @@ type Service = {
   prezzoCentesimi: number | null;
 };
 
+const reasons = [
+  { icon: Timer, title: "Prenoti in 1 minuto", text: "Scegli trattamento e orario, quando vuoi, anche di notte." },
+  { icon: CreditCard, title: "Paghi in salone", text: "Nessun pagamento online: saldi solo a fine trattamento." },
+  { icon: Star, title: "Prodotti professionali", text: "Cura e attenzione su misura per i tuoi capelli." },
+];
+
 export function HomeScreen() {
   const [services, setServices] = useState<Service[] | null>(null);
+  const [promo, setPromo] = useState<PublicPromo | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
   const [name, setName] = useState("");
-  const [query, setQuery] = useState("");
   const [now, setNow] = useState<Date | null>(null);
   const days = useMemo(() => nextDays(14), []);
 
@@ -31,6 +37,7 @@ export function HomeScreen() {
       .then((body) => {
         setReady(Boolean(body.configurato));
         setServices(body.servizi ?? []);
+        setPromo(body.promozione ?? null);
       })
       .catch(() => {
         setReady(false);
@@ -42,9 +49,8 @@ export function HomeScreen() {
       .catch(() => undefined);
   }, []);
 
-  const filtered = (services ?? []).filter((service) =>
-    `${service.nome} ${service.descrizione}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  const list = services ?? [];
+  const promoEnds = promo ? new Date(`${promo.al}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long" }) : "";
 
   return (
     <div className="app-screen">
@@ -61,34 +67,54 @@ export function HomeScreen() {
             </HeroIconLink>
           </>
         }
-      >
-        <SearchBar placeholder="Cerca trattamento, servizio" value={query} onChange={setQuery} filterHref="/prenota" filterLabel="Prenota" />
-      </GreetingHero>
+      />
 
-      <SectionHead title="Per te" href="/prenota" />
+      <SectionHead title={promo ? "Offerta speciale" : "Per te"} subtitle={promo ? `Valida fino al ${promoEnds}` : "Il tuo momento di bellezza ti aspetta"} href="/prenota" />
       <div className="offer-stack">
-        <article className="offer-card">
-          <div className="offer-body">
-            <span className="offer-tag">Solo per te <Sparkles size={12} color="#f5b400" /></span>
-            <h2>Concediti un momento tutto per te.</h2>
-            <p className="offer-line">Prenota in <strong>1</strong> minuto</p>
-            <div className="offer-actions">
-              <Link className="btn btn-accent btn-sm" href="/prenota">Prenota ora</Link>
-              <Link className="round-arrow" href="/prenota" aria-label="Prenota il tuo appuntamento">
-                <ArrowUpRight size={16} strokeWidth={2.2} />
-              </Link>
+        {promo ? (
+          <article className="offer-card is-promo">
+            <div className="offer-body">
+              <span className="offer-tag">Solo per pochi giorni <Tag size={12} color="#5826b2" /></span>
+              <h2>{promo.titolo}</h2>
+              <p className="offer-line">
+                {promo.sconto > 0 ? <>Fino al <strong>{promo.sconto}%</strong> di sconto</> : promo.sottotitolo}
+              </p>
+              {promo.sconto > 0 && promo.sottotitolo ? <p className="offer-line mt-1 text-[12px] opacity-80">{promo.sottotitolo}</p> : null}
+              <div className="offer-actions">
+                <Link className="btn btn-accent btn-sm" href="/prenota">Approfittane ora</Link>
+                <Link className="round-arrow" href="/prenota" aria-label="Prenota con la promozione">
+                  <ArrowUpRight size={16} strokeWidth={2.2} />
+                </Link>
+              </div>
             </div>
-          </div>
-          <span className="offer-visual" aria-hidden>
-            <Image src="/brand/vale.png" alt="" width={240} height={240} unoptimized />
-          </span>
-          <span className="offer-badge">Paghi<br />in salone</span>
-        </article>
+            <span className="offer-visual" aria-hidden>
+              <Image src="/brand/vale.png" alt="" width={240} height={240} unoptimized />
+            </span>
+            {promo.badge ? <span className="offer-badge" style={{ fontSize: 13 }}>{promo.badge}</span> : null}
+          </article>
+        ) : (
+          <article className="offer-card">
+            <div className="offer-body">
+              <span className="offer-tag">Solo per te <Sparkles size={12} color="#f5b400" /></span>
+              <h2>Concediti un momento tutto per te.</h2>
+              <p className="offer-line">Prenota in <strong>1</strong> minuto</p>
+              <div className="offer-actions">
+                <Link className="btn btn-accent btn-sm" href="/prenota">Prenota ora</Link>
+                <Link className="round-arrow" href="/prenota" aria-label="Prenota il tuo appuntamento">
+                  <ArrowUpRight size={16} strokeWidth={2.2} />
+                </Link>
+              </div>
+            </div>
+            <span className="offer-visual" aria-hidden>
+              <Image src="/brand/vale.png" alt="" width={240} height={240} unoptimized />
+            </span>
+          </article>
+        )}
       </div>
 
       <section aria-labelledby="servizi">
         <SectionHead id="servizi" title="Servizi" subtitle="Come possiamo prenderci cura dei tuoi capelli?" href="/prenota" />
-        {ready === false ? <p className="note">Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
+        {ready === false ? <p className="note mb-3">Le prenotazioni online saranno disponibili al termine della configurazione del salone.</p> : null}
         {services === null ? (
           <div className="service-dots" aria-hidden>
             {Array.from({ length: 5 }, (_, index) => (
@@ -97,9 +123,12 @@ export function HomeScreen() {
           </div>
         ) : (
           <div className="service-dots">
-            {filtered.map((service) => (
+            {list.map((service) => (
               <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="service-dot">
-                <span className="dot-circle"><ServiceIcon name={service.nome} /></span>
+                <span className="dot-circle">
+                  <ServiceIcon name={service.nome} size={26} />
+                  {promoFor(promo, service.id) ? <span className="dot-badge">-{promo?.sconto}%</span> : null}
+                </span>
                 <span>{service.nome}</span>
               </Link>
             ))}
@@ -108,33 +137,36 @@ export function HomeScreen() {
       </section>
 
       <section aria-labelledby="in-evidenza">
-        <SectionHead id="in-evidenza" title="I più richiesti" href="/prenota" />
+        <SectionHead id="in-evidenza" title="I più amati" subtitle="Scelti dalle nostre clienti, ogni settimana" href="/prenota" />
         {services === null ? (
           <div className="h-scroll" aria-hidden>
-            {Array.from({ length: 3 }, (_, index) => <div key={index} className="skeleton" style={{ height: 250 }} />)}
+            {Array.from({ length: 3 }, (_, index) => <div key={index} className="skeleton" style={{ height: 260 }} />)}
           </div>
         ) : null}
-        {services && filtered.length === 0 ? (
+        {services && list.length === 0 ? (
           <div className="empty-state">
             <span className="tile-icon"><Sparkles size={20} /></span>
-            {query ? "Nessun trattamento corrisponde alla ricerca." : "I trattamenti saranno presto disponibili."}
+            I trattamenti saranno presto disponibili.
           </div>
         ) : null}
         <div className="h-scroll">
-          {filtered.map((service, index) => (
+          {list.map((service, index) => (
             <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="salon-card">
-              <div className={`salon-media tone-${index % 4}`}>
+              <div className="salon-media">
+                <ServiceArt name={service.nome} tone={index} />
+                {promoFor(promo, service.id) ? (
+                  <span className="promo-ribbon">-{promo?.sconto}%</span>
+                ) : null}
                 <span className="fav-badge" aria-hidden><Heart size={15} fill="currentColor" strokeWidth={0} /></span>
-                <ServiceIcon name={service.nome} size={56} strokeWidth={1.4} />
               </div>
               <div className="salon-body">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start justify-between gap-2">
                   <h3>{service.nome}</h3>
                   <span className="rating-pill"><Clock size={11} strokeWidth={2.4} style={{ fill: "none", color: "#fff" }} />{shortDuration(service.durataMinuti)}</span>
                 </div>
                 <p className="salon-line">{service.descrizione}</p>
                 <div className="salon-foot">
-                  <span className="salon-price">{service.prezzoCentesimi == null ? "Da concordare" : formatPrice(service.prezzoCentesimi)}</span>
+                  <Price className="salon-price" cents={service.prezzoCentesimi} promo={promo} serviceId={service.id} />
                   <span className="round-arrow" aria-hidden><ArrowUpRight size={16} strokeWidth={2.2} /></span>
                 </div>
               </div>
@@ -144,7 +176,7 @@ export function HomeScreen() {
       </section>
 
       <section aria-labelledby="giorni">
-        <SectionHead id="giorni" title="Scegli il giorno" subtitle="Scegli il giorno che preferisci" href="/prenota" linkLabel="Calendario" />
+        <SectionHead id="giorni" title="Quando vuoi venire?" subtitle="Tocca un giorno e scopri gli orari liberi" href="/prenota" linkLabel="Calendario" />
         <div className="date-strip">
           {days.map((day) => (
             <Link key={day.iso} href={`/prenota?giorno=${day.iso}`} className="date-chip">
@@ -155,7 +187,31 @@ export function HomeScreen() {
         </div>
       </section>
 
-      <Link className="btn btn-primary btn-block mt-8 lg:hidden" href="/prenota">Prenota il tuo appuntamento</Link>
+      <section aria-labelledby="perche">
+        <SectionHead id="perche" title="Perché sceglierci" subtitle="Una coccola per te, senza pensieri" />
+        <div className="reasons">
+          {reasons.map((reason) => {
+            const Icon = reason.icon;
+            return (
+              <div key={reason.title} className="reason">
+                <span className="tile-icon is-accent"><Icon size={19} /></span>
+                <div>
+                  <strong>{reason.title}</strong>
+                  <p>{reason.text}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="cta-banner">
+        <div>
+          <strong>Il tuo prossimo look ti aspetta</strong>
+          <p>Gli orari migliori vanno via in fretta: prenota adesso.</p>
+        </div>
+        <Link className="btn btn-white" href="/prenota"><CalendarCheck size={18} /> Prenota</Link>
+      </div>
     </div>
   );
 }

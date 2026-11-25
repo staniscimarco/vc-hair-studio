@@ -4,6 +4,8 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { CustomerTabBar, CustomerTopNav } from "@/components/nav/customer-tab-bar";
 import { InstallHint } from "@/components/pwa/install-hint";
+import { NotificationPrompt } from "@/components/pwa/notification-prompt";
+import { Splash } from "@/components/pwa/splash";
 
 const lexend = Lexend({
   subsets: ["latin"],
@@ -44,6 +46,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main id="contenuto">{children}</main>
         <CustomerTabBar />
         <InstallHint />
+        <NotificationPrompt />
+        <Splash />
         <Toaster position="top-center" richColors />
       </body>
     </html>

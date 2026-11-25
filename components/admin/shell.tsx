@@ -15,6 +15,7 @@ import {
   Plus,
   Scissors,
   Settings,
+  Tag,
   Users,
   X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const groups = [
   {
     label: "Gestione",
     items: [
+      { href: "/admin/promozioni", label: "Promozioni", icon: Tag },
       { href: "/admin/servizi", label: "Servizi", icon: Scissors },
       { href: "/admin/disponibilita", label: "Disponibilità", icon: Ban },
       { href: "/admin/notifiche", label: "Notifiche", icon: Bell },
@@ -54,6 +56,7 @@ const groups = [
 const quick = [
   { href: "/admin/appuntamenti", label: "Nuovo appuntamento", hint: "Telefonate e richieste in salone", icon: CalendarPlus },
   { href: "/admin/disponibilita", label: "Blocca disponibilità", hint: "Pause, ferie e chiusure", icon: Ban },
+  { href: "/admin/promozioni", label: "Nuova promozione", hint: "Black Friday e offerte, con notifica alle clienti", icon: Tag },
   { href: "/admin/servizi", label: "Trattamenti", hint: "Prezzi, durate e visibilità", icon: Scissors },
 ];
 

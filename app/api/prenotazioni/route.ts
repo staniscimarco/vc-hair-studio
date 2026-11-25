@@ -21,7 +21,7 @@ export async function GET() {
     const admin = createAdminSupabase();
     const { data, error } = await admin!
       .from("appointments")
-      .select("id, code, starts_at, ends_at, status, price_cents, calendar_token, services(name, duration_minutes)")
+      .select("id, code, starts_at, ends_at, status, cancel_reason, price_cents, calendar_token, services(name, duration_minutes)")
       .eq("customer_id", customer.id)
       .order("starts_at", { ascending: false });
     if (error) return NextResponse.json({ errore: "Non è stato possibile leggere gli appuntamenti." }, { status: 500 });
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       token: saved.calendar_token,
       inizio: saved.starts_at,
       id: saved.id,
+      stato: saved.status,
     });
   } catch (error) {
     return jsonError(error);

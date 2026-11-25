@@ -5,9 +5,29 @@ const privacyMessage =
 
 export const passwordSchema = z
   .string()
-  .min(8, "La parola d'ordine deve contenere almeno 8 caratteri.")
+  .min(8, "La password deve contenere almeno 8 caratteri.")
   .regex(/[A-Za-zÀ-ÿ]/, "Inserisci almeno una lettera.")
   .regex(/[0-9]/, "Inserisci almeno un numero.");
+
+/** Il servizio copre solo Brindisi: si inserisce via e civico, città e CAP sono fissi. */
+export const CITY = "Brindisi";
+export const POSTAL_CODE = "72100";
+
+export const streetSchema = z
+  .string()
+  .trim()
+  .min(4, "Inserisci via e numero civico.")
+  .max(120, "L'indirizzo è troppo lungo.")
+  .regex(/[A-Za-zÀ-ÿ]/, "Inserisci il nome della via.")
+  .regex(/\d/, "Aggiungi il numero civico.");
+
+export function fullAddress(street: string) {
+  return `${street.trim()}, ${POSTAL_CODE} ${CITY}`;
+}
+
+export function streetOf(address: string | null | undefined) {
+  return (address ?? "").replace(new RegExp(`,?\\s*${POSTAL_CODE}\\s*${CITY}\\s*$`, "i"), "").trim();
+}
 
 export const registrationSchema = z.object({
   nome: z.string().trim().min(2, "Inserisci il nome.").max(80, "Il nome è troppo lungo."),
@@ -17,13 +37,14 @@ export const registrationSchema = z.object({
     .string()
     .trim()
     .regex(/^\+?[0-9][0-9\s]{7,18}$/, "Inserisci un numero di telefono valido."),
+  indirizzo: streetSchema,
   password: passwordSchema,
   privacy: z.literal(true, privacyMessage),
 });
 
 export const loginSchema = z.object({
   email: z.string().trim().min(1, "Inserisci e-mail o nome utente.").max(160),
-  password: z.string().min(1, "Inserisci la parola d'ordine."),
+  password: z.string().min(1, "Inserisci la password."),
 });
 
 export const recoverySchema = z.object({
@@ -37,6 +58,7 @@ export const profileSchema = z.object({
     .string()
     .trim()
     .regex(/^\+?[0-9][0-9\s]{7,18}$/, "Inserisci un numero di telefono valido."),
+  indirizzo: streetSchema,
 });
 
 export const serviceSchema = z.object({

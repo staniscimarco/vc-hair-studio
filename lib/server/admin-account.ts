@@ -55,7 +55,7 @@ export async function prepareAdminLogin(password: string): Promise<{ ok: true; e
 
   const existing = await findUserId(email);
   if (!existing) {
-    if (password !== expected) return { ok: false, status: 401, errore: "E-mail o parola d'ordine non corrette." };
+    if (password !== expected) return { ok: false, status: 401, errore: "E-mail o password non corrette." };
     const created = await admin.auth.admin.createUser({
       email,
       password,

@@ -10,6 +10,8 @@ import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { toast } from "sonner";
+import { appleMapsUrl, googleMapsUrl } from "@/lib/maps";
+import { RequestCard, type Request } from "@/components/admin/request-card";
 
 type Appointment = {
   id: string;
@@ -17,11 +19,12 @@ type Appointment = {
   starts_at: string;
   ends_at: string;
   status: string;
-  customers: { first_name?: string; last_name?: string; phone?: string } | { first_name?: string; last_name?: string; phone?: string }[] | null;
+  customers: { first_name?: string; last_name?: string; phone?: string; address?: string } | { first_name?: string; last_name?: string; phone?: string; address?: string }[] | null;
   services: { name?: string; color?: string } | { name?: string; color?: string }[] | null;
 };
 
 const statusColor: Record<string, string> = {
+  pending: "#F0A500",
   confirmed: "#9D6CFB",
   completed: "#1F9D6B",
   cancelled: "#C9C5D6",
@@ -148,6 +151,20 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
             {one(selected.customers)?.phone ? <> · <a className="font-medium text-primary-strong" href={`tel:${one(selected.customers)?.phone}`}>{one(selected.customers)?.phone}</a></> : null}
           </p>
           <p className="note m-0">Codice {selected.code}</p>
+          {one(selected.customers)?.address ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <a className="btn btn-white btn-xs" href={appleMapsUrl(one(selected.customers)!.address!)} target="_blank" rel="noreferrer">Itinerario Apple Mappe</a>
+              <a className="btn btn-white btn-xs" href={googleMapsUrl(one(selected.customers)!.address!)} target="_blank" rel="noreferrer">Google Maps</a>
+            </div>
+          ) : null}
+          {selected.status !== "pending" && selected.status !== "cancelled" ? (
+            <a className="btn btn-white btn-xs mt-2" href={`/api/admin/evento/${selected.id}`}>Aggiungi al mio calendario</a>
+          ) : null}
+          {selected.status === "pending" ? (
+            <div className="mt-3">
+              <RequestCard request={selected as unknown as Request} onDone={(status) => setSelected({ ...selected, status })} />
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {(["confirmed", "in_progress", "completed", "cancelled", "no_show"] as const).map((status) => (
               <button

@@ -21,7 +21,19 @@ export type PushPayload = {
   url: string;
 };
 
-export function buildPushPayload(event: PushEvent, when: Date, appointmentId: string): PushPayload {
+export function buildPushPayload(
+  event: PushEvent,
+  when: Date,
+  appointmentId: string,
+  extra?: { pending?: boolean; serviceName?: string },
+): PushPayload {
+  if (event === "created" && extra?.pending) {
+    return {
+      title: "Nuova richiesta di prenotazione",
+      body: `${extra.serviceName ?? "Trattamento"} · ${formatDateLong(when)} alle ${formatTime(when)}. Tocca per accettare o rifiutare.`,
+      url: `/admin/richiesta/${appointmentId}`,
+    };
+  }
   return {
     title: titles[event],
     body: `${leads[event]} ${formatDateLong(when)} alle ${formatTime(when)}.`,

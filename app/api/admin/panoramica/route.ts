@@ -1,9 +1,11 @@
+import { ensureDatabase } from "@/lib/server/schema";
 import { NextResponse } from "next/server";
 import { addDays, romeDate, zonedDateTime } from "@/lib/availability/time";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
 
 export async function GET() {
   try {
+    await ensureDatabase().catch(() => undefined);
     const { admin } = await requireAdmin();
     const today = romeDate(new Date());
     const tomorrow = addDays(today, 1);

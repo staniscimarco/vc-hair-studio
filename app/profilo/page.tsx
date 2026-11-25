@@ -4,14 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronRight, Download, FileText, KeyRound, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { BellRing, ChevronRight, Download, Smartphone, FileText, KeyRound, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
-import { profileSchema } from "@/lib/validators";
+import { fullAddress, profileSchema, streetOf } from "@/lib/validators";
+import { AddressField } from "@/components/auth/address-field";
 import { TitleHero } from "@/components/ui/app-header";
+import { openInstallHint } from "@/components/pwa/install-hint";
+import { enablePush } from "@/lib/push-client";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [profile, setProfile] = useState({ nome: "", cognome: "", telefono: "", email: "" });
+  const [profile, setProfile] = useState({ nome: "", cognome: "", telefono: "", email: "", indirizzo: "" });
 
   useEffect(() => {
     void getBrowserSupabase().then(async (supabase) => {
@@ -21,12 +24,13 @@ export default function ProfilePage() {
         router.push("/accesso?prossimo=/profilo");
         return;
       }
-      const row = await supabase.from("profiles").select("first_name, last_name, phone, email").eq("id", data.user.id).single();
+      const row = await supabase.from("profiles").select("first_name, last_name, phone, email, address").eq("id", data.user.id).single();
       setProfile({
         nome: row.data?.first_name ?? "",
         cognome: row.data?.last_name ?? "",
         telefono: row.data?.phone ?? "",
         email: row.data?.email ?? data.user.email ?? "",
+        indirizzo: streetOf((row.data as { address?: string } | null)?.address),
       });
     });
   }, [router]);
@@ -38,6 +42,7 @@ export default function ProfilePage() {
       nome: formData.get("nome"),
       cognome: formData.get("cognome"),
       telefono: formData.get("telefono"),
+      indirizzo: formData.get("indirizzo"),
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Controlla i dati.");
@@ -47,7 +52,7 @@ export default function ProfilePage() {
     if (!data.user) return;
     const { error } = await supabase
       .from("profiles")
-      .update({ first_name: parsed.data.nome, last_name: parsed.data.cognome, phone: parsed.data.telefono })
+      .update({ first_name: parsed.data.nome, last_name: parsed.data.cognome, phone: parsed.data.telefono, address: fullAddress(parsed.data.indirizzo) })
       .eq("id", data.user.id);
     if (error) toast.error("Non è stato possibile aggiornare il profilo.");
     else toast.success("Profilo aggiornato.");
@@ -57,8 +62,8 @@ export default function ProfilePage() {
     const supabase = await getBrowserSupabase();
     if (!supabase) return;
     const { error } = await supabase.auth.updateUser({ password: String(formData.get("password") ?? "") });
-    if (error) toast.error("Non è stato possibile aggiornare la parola d'ordine.");
-    else toast.success("Parola d'ordine aggiornata.");
+    if (error) toast.error("Non è stato possibile aggiornare la password.");
+    else toast.success("password aggiornata.");
   }
 
   async function requestDeletion() {
@@ -94,7 +99,8 @@ export default function ProfilePage() {
           </div>
           <label className="field">Nome<input name="nome" defaultValue={profile.nome} key={`n-${profile.nome}`} /></label>
           <label className="field">Cognome<input name="cognome" defaultValue={profile.cognome} key={`c-${profile.cognome}`} /></label>
-          <label className="field">Telefono<input name="telefono" defaultValue={profile.telefono} key={`t-${profile.telefono}`} /></label>
+          <label className="field">Telefono<input name="telefono" type="tel" defaultValue={profile.telefono} key={`t-${profile.telefono}`} /></label>
+          <AddressField defaultValue={profile.indirizzo} key={`a-${profile.indirizzo}`} />
           <p className="note m-0">E-mail: {profile.email}</p>
           <button className="btn btn-primary btn-block" type="submit">Salva profilo</button>
         </form>
@@ -105,11 +111,25 @@ export default function ProfilePage() {
               <span className="tile-icon"><KeyRound size={20} /></span>
               <h2>Sicurezza</h2>
             </div>
-            <label className="field">Nuova parola d&apos;ordine<input name="password" type="password" minLength={8} required /></label>
-            <button className="btn btn-soft btn-block" type="submit">Aggiorna parola d&apos;ordine</button>
+            <label className="field">Nuova password<input name="password" type="password" minLength={8} required /></label>
+            <button className="btn btn-soft btn-block" type="submit">Aggiorna password</button>
           </form>
 
           <nav className="card" aria-label="Altre opzioni" style={{ paddingBlock: 6 }}>
+            <button className="list-row" type="button" onClick={async () => {
+              const result = await enablePush("customer");
+              if (result.ok) toast.success("Notifiche attivate: ti avviseremo di conferme, posti liberi e offerte.");
+              else toast.error(result.motivo ?? "Notifiche non attivate.");
+            }}>
+              <span className="tile-icon"><BellRing size={18} /></span>
+              <span className="grow">Attiva le notifiche<small className="block text-xs font-normal text-muted">Conferme, posti liberi e offerte riservate</small></span>
+              <ChevronRight size={18} className="text-muted" />
+            </button>
+            <button className="list-row" type="button" onClick={openInstallHint}>
+              <span className="tile-icon"><Smartphone size={18} /></span>
+              <span className="grow">Installa l&apos;app sul telefono</span>
+              <ChevronRight size={18} className="text-muted" />
+            </button>
             <Link className="list-row" href="/privacy">
               <span className="tile-icon"><ShieldCheck size={18} /></span>
               <span className="grow">Informativa sulla privacy</span>

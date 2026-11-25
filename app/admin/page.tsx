@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
@@ -20,13 +19,15 @@ import {
   Scissors,
   Settings,
   Sparkles,
+  Tag,
   UserRound,
   Users,
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { formatDate, formatPrice, formatTime } from "@/lib/format";
-import { GreetingHero, HeroIconLink, SearchBar, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
+import { RequestCard, type Request } from "@/components/admin/request-card";
+import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
 
 type Stats = {
   oggi: number;
@@ -48,18 +49,18 @@ const actions: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/calendario", label: "Agenda", icon: CalendarDays },
   { href: "/admin/disponibilita", label: "Blocca", icon: Ban },
   { href: "/admin/disponibilita", label: "Chiudi giornata", icon: CalendarX },
+  { href: "/admin/promozioni", label: "Promo", icon: Tag },
   { href: "/admin/servizi", label: "Servizi", icon: Scissors },
   { href: "/admin/clienti", label: "Clienti", icon: Users },
   { href: "/admin/configurazione", label: "Configura", icon: ListChecks },
 ];
 
 export default function AdminHome() {
-  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
-  const [query, setQuery] = useState("");
   const [now, setNow] = useState<Date | null>(null);
+  const [requests, setRequests] = useState<Request[]>([]);
 
   useEffect(() => {
     setNow(new Date());
@@ -68,6 +69,10 @@ export default function AdminHome() {
       if (!response.ok) setError(body.errore);
       else setStats(body);
     });
+    void fetch("/api/admin/richieste")
+      .then((response) => response.json())
+      .then((body) => setRequests(body.richieste ?? []))
+      .catch(() => undefined);
     void fetch("/api/sessione")
       .then((response) => response.json())
       .then((body) => setName(body.nome ?? ""))
@@ -106,15 +111,18 @@ export default function AdminHome() {
             </HeroIconLink>
           </>
         }
-      >
-        <SearchBar
-          placeholder="Cerca cliente, telefono, e-mail"
-          value={query}
-          onChange={setQuery}
-          onSubmit={() => router.push(`/admin/clienti?q=${encodeURIComponent(query)}`)}
-          filterLabel="Cerca"
-        />
-      </GreetingHero>
+      />
+
+      {requests.length ? (
+        <section aria-labelledby="richieste">
+          <SectionHead id="richieste" title={`Da confermare (${requests.length})`} subtitle="Nuove richieste online: rispondi con un tocco, la cliente viene avvisata." />
+          <div className="grid gap-3 lg:grid-cols-2">
+            {requests.map((request) => (
+              <RequestCard key={request.id} request={request} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <SectionHead title="Oggi in salone" href="/admin/calendario" linkLabel="Agenda" />
       <div className="offer-stack">

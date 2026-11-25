@@ -1,3 +1,4 @@
+import { ensureDatabase } from "@/lib/server/schema";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sameOrigin } from "@/lib/security/http";
@@ -7,6 +8,7 @@ import { loadService } from "@/lib/server/schedule";
 
 export async function GET(request: Request) {
   try {
+    await ensureDatabase().catch(() => undefined);
     const { admin } = await requireAdmin();
     const url = new URL(request.url);
     const from = url.searchParams.get("da");
@@ -15,7 +17,7 @@ export async function GET(request: Request) {
     const [appointments, blocks] = await Promise.all([
       admin
         .from("appointments")
-        .select("id, code, starts_at, ends_at, status, price_cents, amount_paid_cents, payment_status, payment_method, notes, source, customers(first_name, last_name, phone), services(name, color)")
+        .select("id, code, starts_at, ends_at, status, price_cents, amount_paid_cents, payment_status, payment_method, notes, source, customers(first_name, last_name, phone, address), services(name, color)")
         .lt("starts_at", to)
         .gt("ends_at", from),
       admin.from("blocked_slots").select("id, starts_at, ends_at, reason, notes").lt("starts_at", to).gt("ends_at", from),

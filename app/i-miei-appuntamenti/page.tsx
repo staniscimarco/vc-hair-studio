@@ -15,12 +15,14 @@ type Row = {
   starts_at: string;
   ends_at: string;
   status: string;
+  cancel_reason?: string | null;
   price_cents: number | null;
   calendar_token: string;
   services: { name?: string } | { name?: string }[] | null;
 };
 
 const labels: Record<string, string> = {
+  pending: "In attesa di conferma",
   confirmed: "Confermato",
   in_progress: "In corso",
   completed: "Completato",
@@ -79,7 +81,7 @@ export default function AppointmentsPage() {
             <Plus size={20} strokeWidth={2.2} />
           </HeroIconLink>
         }
-        subtitle="Tutti i tuoi appuntamenti in salone, a portata di mano."
+        subtitle="I tuoi momenti di bellezza, sempre a portata di mano."
       />
 
       <div className="chips mt-5" role="tablist" aria-label="Filtra appuntamenti">
@@ -103,7 +105,7 @@ export default function AppointmentsPage() {
         <>
           <SectionHead title={tab === "prossimi" ? "Prossimi" : "Storico"} href="/prenota" linkLabel="Prenota" />
           {tab === "prossimi" ? (
-            <List rows={future} onCancel={cancel} empty="Non hai appuntamenti in programma." />
+            <List rows={future} onCancel={cancel} empty="Nessun appuntamento in programma… è il momento giusto per coccolarti!" />
           ) : (
             <List rows={past} empty="Lo storico è ancora vuoto." />
           )}
@@ -128,7 +130,8 @@ function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) 
       {rows.map((row) => {
         const start = new Date(row.starts_at);
         const minutes = Math.round((new Date(row.ends_at).getTime() - start.getTime()) / 60000);
-        const statusClass = row.status === "cancelled" || row.status === "no_show" ? "is-cancelled" : row.status === "completed" ? "is-completed" : "is-confirmed";
+        const rejected = row.status === "cancelled" && row.cancel_reason === "rifiutata_dal_salone";
+        const statusClass = row.status === "pending" ? "is-pending" : row.status === "cancelled" || row.status === "no_show" ? "is-cancelled" : row.status === "completed" ? "is-completed" : "is-confirmed";
         return (
           <article key={row.id} className="salon-card" style={{ cursor: "default" }}>
             <div className="flex gap-3">
@@ -140,7 +143,7 @@ function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) 
               <div className="min-w-0 flex-1 py-1">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="m-0 text-base">{serviceName(row)}</h3>
-                  <span className={`status-pill ${statusClass}`}>{labels[row.status] ?? row.status}</span>
+                  <span className={`status-pill ${statusClass}`}>{rejected ? "Non disponibile" : labels[row.status] ?? row.status}</span>
                 </div>
                 <p className="mt-1 flex items-center gap-1 text-[13px] text-[#3d3b47]">
                   <Clock size={13} /> {formatTime(start)} · {minutes} minuti
@@ -152,10 +155,10 @@ function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) 
               </div>
             </div>
             <div className="mt-3 flex gap-2 px-1 pb-1">
-              <a className="btn btn-white btn-xs flex-1" href={`/api/calendario/${row.calendar_token}`}>
+              <a className={`btn btn-white btn-xs flex-1 ${row.status === "pending" ? "pointer-events-none opacity-50" : ""}`} href={`/api/calendario/${row.calendar_token}`}>
                 <CalendarPlus size={14} /> Aggiungi al calendario
               </a>
-              {onCancel && row.status === "confirmed" ? (
+              {onCancel && (row.status === "confirmed" || row.status === "pending") ? (
                 <button type="button" className="btn btn-danger btn-xs" onClick={() => onCancel(row.id)}>Annulla</button>
               ) : null}
               {!onCancel ? (

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const identificativo = String(body?.email ?? "").trim();
     const password = String(body?.password ?? "");
     if (!identificativo || !password) {
-      return NextResponse.json({ errore: "Inserisci e-mail o nome utente e la parola d'ordine." }, { status: 400 });
+      return NextResponse.json({ errore: "Inserisci e-mail o nome utente e la password." }, { status: 400 });
     }
 
     let email = identificativo;
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const supabase = await createServerSupabase();
     if (!supabase) return NextResponse.json({ errore: "L'accesso non è ancora configurato." }, { status: 503 });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return NextResponse.json({ errore: "E-mail o parola d'ordine non corrette." }, { status: 401 });
+    if (error) return NextResponse.json({ errore: "E-mail o password non corrette." }, { status: 401 });
 
     const { data } = await supabase.auth.getUser();
     const profile = data.user

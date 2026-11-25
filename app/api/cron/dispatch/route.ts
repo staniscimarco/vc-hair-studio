@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { sendNotification, setVapidDetails } from "web-push";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDateLong, formatTime } from "@/lib/format";
+import { ensureDatabase } from "@/lib/server/schema";
+import { dailyAvailabilityBroadcast } from "@/lib/server/daily";
+import { subscriptionsFor } from "@/lib/server/push";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -10,10 +13,15 @@ export async function GET(request: Request) {
   }
   const admin = createAdminSupabase();
   if (!admin) return NextResponse.json({ saltato: true, motivo: "Archivio non configurato." });
+  await ensureDatabase().catch(() => undefined);
   const push = await dispatchPush(admin);
   const email = await dispatchEmail(admin);
   const reminders = await queueReminders(admin);
-  return NextResponse.json({ push, email, reminders });
+  const giornaliero = await dailyAvailabilityBroadcast(admin).catch((error: unknown) => ({
+    inviata: false,
+    motivo: error instanceof Error ? error.message : "errore",
+  }));
+  return NextResponse.json({ push, email, reminders, giornaliero });
 }
 
 async function dispatchPush(admin: NonNullable<ReturnType<typeof createAdminSupabase>>) {
@@ -24,7 +32,8 @@ async function dispatchPush(admin: NonNullable<ReturnType<typeof createAdminSupa
     return { inviate: 0, motivo: "non_configurato" };
   }
   setVapidDetails(process.env.VAPID_SUBJECT!, process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!, process.env.VAPID_PRIVATE_KEY!);
-  const devices = await admin.from("push_subscriptions").select("*").is("disabled_at", null);
+  // Le notifiche delle prenotazioni vanno solo ai dispositivi dell'amministratrice, mai alle clienti.
+  const devices = { data: await subscriptionsFor(admin, "admin") };
   let sent = 0;
   for (const item of data ?? []) {
     let ok = false;

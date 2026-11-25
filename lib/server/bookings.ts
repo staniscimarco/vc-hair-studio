@@ -4,7 +4,16 @@ import { canCustomerModify } from "@/lib/permissions";
 import { romeDate } from "@/lib/availability/time";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { assertSlotFree, loadService, loadSettings, type ServiceRecord } from "@/lib/server/schedule";
-import { enqueueAppointmentNotice } from "@/lib/server/notices";
+import { enqueueAppointmentNotice, notifyCustomerDecision } from "@/lib/server/notices";
+import { ensureDatabase } from "@/lib/server/schema";
+import { currentPromotion, discountedPrice, promotionApplies } from "@/lib/server/promotions";
+
+/** Se attivo, le prenotazioni online restano "in attesa" finché il salone non le accetta. */
+export async function approvalRequired() {
+  const { data, error } = await db().from("salon_settings").select("require_approval").eq("id", 1).maybeSingle();
+  if (error || !data) return false;
+  return Boolean((data as { require_approval?: boolean }).require_approval);
+}
 
 function db() {
   const client = createAdminSupabase();
@@ -61,6 +70,7 @@ export async function createOnlineBooking(input: {
   startIso: string;
   idempotencyKey: string;
 }) {
+  await ensureDatabase().catch(() => undefined);
   const settings = await loadSettings();
   if (!settings.bookingEnabled) {
     throw new HttpError(403, "Le prenotazioni online non sono ancora attive.");
@@ -79,6 +89,8 @@ export async function createOnlineBooking(input: {
   if (Number.isNaN(start.getTime())) throw new HttpError(400, "L'orario indicato non è valido.");
   await assertSlotFree({ service, start });
   const customer = await customerForUser(input.userId);
+  const [pending, promo] = await Promise.all([approvalRequired(), currentPromotion()]);
+  const discounted = promotionApplies(promo, service.id);
   const saved = await insertAppointment({
     customer_id: customer.id,
     service_id: service.id,
@@ -86,11 +98,12 @@ export async function createOnlineBooking(input: {
     ends_at: new Date(start.getTime() + service.durationMinutes * 60_000).toISOString(),
     prep_minutes: service.prepMinutes,
     buffer_minutes: service.bufferMinutes,
-    price_cents: service.priceCents,
+    price_cents: discounted && promo ? discountedPrice(service.priceCents, promo.sconto) : service.priceCents,
+    ...(discounted && promo ? { promotion_id: promo.id } : {}),
     source: "online",
     idempotency_key: input.idempotencyKey,
     created_by: input.userId,
-    status: "confirmed",
+    status: pending ? "pending" : "confirmed",
   });
   if (!("duplicate" in saved)) {
     await enqueueAppointmentNotice({
@@ -100,6 +113,7 @@ export async function createOnlineBooking(input: {
       email: customer.email,
       serviceName: service.name,
       code: saved.code,
+      pending,
     });
   }
   return { ...saved, servizio: service.name, data: romeDate(start) };
@@ -141,6 +155,7 @@ export async function createManualBooking(input: {
     email: customer.data?.email,
     serviceName: input.service.name,
     code: saved.code,
+    push: false,
   });
   return saved;
 }
@@ -254,4 +269,34 @@ export async function rescheduleAppointment(input: {
     code: row.code,
   });
   return { id: row.id, starts_at: input.start.toISOString(), ends_at: ends.toISOString() };
+}
+
+/** Il salone accetta o rifiuta una richiesta online; la cliente riceve notifica ed e-mail. */
+export async function decideAppointment(input: { appointmentId: string; actorId: string; accept: boolean }) {
+  const client = db();
+  const { data, error } = await client
+    .from("appointments")
+    .select("id, code, status, starts_at, customers(profile_id, email), services(name)")
+    .eq("id", input.appointmentId)
+    .maybeSingle();
+  if (error || !data) throw new HttpError(404, "Prenotazione non trovata.");
+  if (data.status !== "pending") {
+    throw new HttpError(409, data.status === "confirmed" ? "Questa prenotazione è già stata accettata." : "Questa richiesta non è più in attesa.");
+  }
+  const update = input.accept
+    ? { status: "confirmed" }
+    : { status: "cancelled", cancel_reason: "rifiutata_dal_salone" };
+  const saved = await client.from("appointments").update(update).eq("id", data.id).eq("status", "pending").select("id").maybeSingle();
+  if (saved.error || !saved.data) throw new HttpError(409, "La richiesta è stata già gestita.");
+  const customer = (Array.isArray(data.customers) ? data.customers[0] : data.customers) as { profile_id?: string | null; email?: string | null } | null;
+  const service = (Array.isArray(data.services) ? data.services[0] : data.services) as { name?: string } | null;
+  await notifyCustomerDecision({
+    appointmentId: data.id,
+    accepted: input.accept,
+    when: new Date(data.starts_at),
+    profileId: customer?.profile_id ?? null,
+    email: customer?.email ?? null,
+    serviceName: service?.name ?? "Trattamento",
+  });
+  return { id: data.id, status: update.status };
 }

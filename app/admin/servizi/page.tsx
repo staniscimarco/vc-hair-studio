@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { SectionHead, TitleHero } from "@/components/ui/app-header";
-import { ServiceIcon } from "@/components/ui/service-icon";
+import { ServiceArt, ServiceIcon } from "@/components/ui/service-icon";
 
 type Service = {
   id: string;
@@ -93,7 +93,7 @@ export default function ServicesPage() {
           <form key={row.id} id={`servizio-${row.id}`} action={save} className="salon-card grid gap-3" style={{ padding: 10, cursor: "default" }}>
             <input type="hidden" name="id" value={row.id} />
             <div className="flex items-center gap-3">
-              <span className={`pick-thumb salon-media tone-${index % 4}`} style={{ flexBasis: 64, height: 64 }}><ServiceIcon name={row.name} size={26} /></span>
+              <span className="pick-thumb" style={{ flexBasis: 64, height: 64 }}><ServiceArt name={row.name} tone={index} compact /></span>
               <div className="min-w-0 flex-1">
                 <h3 className="m-0 truncate text-base">{row.name}</h3>
                 <p className="m-0 text-[13px] font-semibold">{formatPrice(row.price_cents)}</p>
