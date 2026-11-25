@@ -4,7 +4,7 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 
 type Admin = NonNullable<ReturnType<typeof createAdminSupabase>>;
 type Subscription = { id: string; endpoint: string; p256dh: string; auth_key: string };
-export type Payload = { title: string; body: string; url: string };
+export type Payload = { title: string; body: string; url: string; tag?: string };
 
 export function pushReady() {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT);

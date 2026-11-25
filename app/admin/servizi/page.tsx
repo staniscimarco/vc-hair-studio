@@ -90,7 +90,7 @@ export default function ServicesPage() {
       <SectionHead title="Trattamenti" subtitle={`${rows.length} in elenco`} />
       <div className="grid gap-4 lg:grid-cols-2">
         {rows.map((row, index) => (
-          <form key={row.id} id={`servizio-${row.id}`} action={save} className="salon-card grid gap-3" style={{ padding: 10, cursor: "default" }}>
+          <form key={row.id} id={`servizio-${row.id}`} onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="salon-card grid gap-3" style={{ padding: 10, cursor: "default" }}>
             <input type="hidden" name="id" value={row.id} />
             <div className="flex items-center gap-3">
               <span className="pick-thumb" style={{ flexBasis: 64, height: 64 }}><ServiceArt name={row.name} tone={index} compact /></span>
@@ -122,7 +122,7 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      <form id="nuovo-servizio" action={save} className="card mt-6 grid gap-3" style={{ borderStyle: "dashed", borderColor: "var(--accent)", borderWidth: 2 }}>
+      <form id="nuovo-servizio" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="card mt-6 grid gap-3" style={{ borderStyle: "dashed", borderColor: "var(--accent)", borderWidth: 2 }}>
         <div className="card-title"><span className="tile-icon is-accent"><Plus size={20} /></span><h2>Nuovo trattamento</h2></div>
         <div className="field-grid cols-2">
           <label className="field">Nome<input name="nome" required /></label>

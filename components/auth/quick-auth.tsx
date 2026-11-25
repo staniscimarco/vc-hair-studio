@@ -107,7 +107,7 @@ export function QuickAuth({ next, onDone }: { next: string; onDone: (name: strin
       {message ? <p className="card-soft m-0 text-sm leading-6">{message}</p> : null}
 
       {mode === "accedi" ? (
-        <form action={login} className="grid gap-3">
+        <form onSubmit={(event) => { event.preventDefault(); void login(new FormData(event.currentTarget)); }} className="grid gap-3">
           <label className="field">E-mail<input name="email" type="text" autoComplete="username" required /></label>
           <label className="field">Password<input name="password" type="password" autoComplete="current-password" required /></label>
           <Link className="justify-self-end text-[13px] font-medium text-primary-strong no-underline" href="/recupero-password">
@@ -116,7 +116,7 @@ export function QuickAuth({ next, onDone }: { next: string; onDone: (name: strin
           <button className="btn btn-primary btn-block" type="submit" disabled={pending}>{pending ? "Attendere…" : "Accedi e continua"}</button>
         </form>
       ) : (
-        <form action={register} className="grid gap-3">
+        <form onSubmit={(event) => { event.preventDefault(); void register(new FormData(event.currentTarget)); }} className="grid gap-3">
           <div className="field-grid cols-2">
             <label className="field">Nome<input name="nome" autoComplete="given-name" required /></label>
             <label className="field">Cognome<input name="cognome" autoComplete="family-name" required /></label>

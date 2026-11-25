@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/security/http";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
+import { adminProfileIds } from "@/lib/server/admins";
 
 export async function GET(request: Request) {
   try {
     const { admin } = await requireAdmin();
     const q = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
-    const { data, error } = await admin.from("customers").select("*").order("last_name").limit(200);
+    const [{ data, error }, admins] = await Promise.all([
+      admin.from("customers").select("*").order("last_name").limit(500),
+      adminProfileIds(admin),
+    ]);
     if (error) return NextResponse.json({ errore: "Non è stato possibile leggere le clienti." }, { status: 500 });
-    const rows = (data ?? []).filter((row) => {
+    const hidden = new Set(admins);
+    const rows = (data ?? []).filter((row) => !(row.profile_id && hidden.has(String(row.profile_id)))).filter((row) => {
       const haystack = `${row.first_name} ${row.last_name} ${row.email ?? ""} ${row.phone ?? ""}`.toLowerCase();
       return !q || haystack.includes(q);
     });

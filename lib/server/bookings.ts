@@ -288,6 +288,8 @@ export async function decideAppointment(input: { appointmentId: string; actorId:
     : { status: "cancelled", cancel_reason: "rifiutata_dal_salone" };
   const saved = await client.from("appointments").update(update).eq("id", data.id).eq("status", "pending").select("id").maybeSingle();
   if (saved.error || !saved.data) throw new HttpError(409, "La richiesta è stata già gestita.");
+  // La richiesta gestita non conta più tra le notifiche da leggere dell'amministratrice.
+  await client.from("notifications").update({ read_at: new Date().toISOString() }).eq("appointment_id", data.id).is("read_at", null);
   const customer = (Array.isArray(data.customers) ? data.customers[0] : data.customers) as { profile_id?: string | null; email?: string | null } | null;
   const service = (Array.isArray(data.services) ? data.services[0] : data.services) as { name?: string } | null;
   await notifyCustomerDecision({

@@ -1,4 +1,4 @@
-const STATIC = "vc-static-v1";
+const STATIC = "vc-static-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC).then((cache) => cache.addAll(["/offline.html", "/brand/vale.png"])));
@@ -35,30 +35,49 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: "VC Hair Studio", body: event.data ? event.data.text() : "" };
+  }
+  const url = data.url || "/";
   event.waitUntil(
-    self.registration.showNotification(data.title || "VC Hair Studio", {
-      body: data.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/badge-96.png",
-      lang: "it",
-      data: { url: data.url || "/admin/calendario" },
-    }),
+    Promise.all([
+      self.registration.showNotification(data.title || "VC Hair Studio", {
+        body: data.body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/badge-96.png",
+        lang: "it",
+        tag: data.tag || undefined,
+        renotify: Boolean(data.tag),
+        data: { url },
+      }),
+      // Avvisa l'app aperta: aggiorna subito stati, contatori e liste.
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        for (const client of clients) client.postMessage({ type: "push", url });
+      }),
+    ]),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || "/admin/calendario", self.location.origin).href;
+  const url = event.notification.data?.url || "/";
+  const target = new URL(url, self.location.origin);
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if (client.url.startsWith(self.location.origin) && "focus" in client) {
-          client.navigate(target);
-          return client.focus();
-        }
+    (async () => {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = clients.find((client) => client.url.startsWith(self.location.origin));
+      if (open) {
+        // L'app è aperta: la porta in primo piano e le chiede di aprire la pagina giusta.
+        await open.focus().catch(() => undefined);
+        open.postMessage({ type: "apri", url: target.pathname + target.search });
+        return;
       }
-      return self.clients.openWindow(target);
-    }),
+      // App chiusa: la apre direttamente sulla pagina giusta.
+      target.searchParams.set("da_notifica", "1");
+      await self.clients.openWindow(target.href);
+    })(),
   );
 });

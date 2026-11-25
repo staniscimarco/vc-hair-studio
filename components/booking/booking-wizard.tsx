@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, Bell, BellRing, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock, Euro, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowRight, BellRing, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock, Euro, UserRound } from "lucide-react";
 import { formatDateLong, formatTime } from "@/lib/format";
-import { HeroIconLink, SectionHead, TitleHero } from "@/components/ui/app-header";
+import { SectionHead, TitleHero } from "@/components/ui/app-header";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { ServiceArt, ServiceIcon, shortDuration } from "@/components/ui/service-icon";
 import { QuickAuth } from "@/components/auth/quick-auth";
 import { Price, type PublicPromo } from "@/components/ui/price";
@@ -244,9 +245,7 @@ export function BookingWizard() {
         title="Prenota"
         back={back}
         action={
-          <HeroIconLink href="/i-miei-appuntamenti" label="I miei appuntamenti" tone="white" dot>
-            <Bell size={20} strokeWidth={2} />
-          </HeroIconLink>
+          <NotificationBell href="/notifiche" />
         }
       >
         <ol className="stepper m-0 p-0" aria-label="Passaggi della prenotazione">

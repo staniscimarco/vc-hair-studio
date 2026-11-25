@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useLive } from "@/lib/live";
 import { CalendarDays, CalendarPlus, Clock, Plus } from "lucide-react";
 import { TIME_ZONE } from "@/lib/availability/time";
 import { formatPrice, formatTime } from "@/lib/format";
@@ -56,6 +57,8 @@ export default function AppointmentsPage() {
   useEffect(() => {
     void load();
   }, []);
+  // Lo stato si aggiorna da solo quando il salone accetta o rifiuta (notifica, rientro nell'app, ogni 20 s).
+  useLive(() => void load());
 
   async function cancel(id: string) {
     if (!confirm("Vuoi annullare questo appuntamento?")) return;

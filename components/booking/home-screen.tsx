@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Bell, CalendarCheck, Clock, CreditCard, Heart, Sparkles, Star, Tag, Timer } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Clock, CreditCard, Heart, Sparkles, Star, Tag, Timer } from "lucide-react";
 import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { ServiceArt, shortDuration } from "@/components/ui/service-icon";
 import { Price, promoFor, type PublicPromo } from "@/components/ui/price";
 
@@ -75,9 +76,7 @@ export function HomeScreen() {
             <HeroIconLink href="/prenota" label="Trattamenti">
               <Heart size={20} strokeWidth={2} />
             </HeroIconLink>
-            <HeroIconLink href="/i-miei-appuntamenti" label="Promemoria appuntamenti" tone="white" dot>
-              <Bell size={20} strokeWidth={2} />
-            </HeroIconLink>
+            <NotificationBell href="/notifiche" />
           </>
         }
       />

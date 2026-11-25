@@ -3,6 +3,7 @@ import { buildPushPayload, type PushEvent } from "@/lib/notifications/message";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDate, formatDateLong, formatTime } from "@/lib/format";
 import { sendToSubscriptions } from "@/lib/server/push";
+import { dispatchNow } from "@/lib/server/dispatch";
 import { HttpError } from "@/lib/http";
 
 export async function enqueueAppointmentNotice(input: {
@@ -42,13 +43,16 @@ export async function enqueueAppointmentNotice(input: {
       await admin.from("notification_outbox").insert({
         notification_id: notification.id,
         appointment_id: input.appointmentId,
-        payload,
+        payload: { ...payload, tag: `richiesta-${input.appointmentId}` },
         status: "pending",
       });
     }
   }
 
-  if (!input.email) return;
+  if (!input.email) {
+    await dispatchNow();
+    return;
+  }
   const subjects: Record<PushEvent, string> = {
     created: input.pending ? "Abbiamo ricevuto la tua richiesta di appuntamento" : "Il tuo appuntamento è confermato",
     updated: "Il tuo appuntamento è stato modificato",
@@ -62,6 +66,8 @@ export async function enqueueAppointmentNotice(input: {
     status: "pending",
     dedupe_key: `${input.event}:${input.appointmentId}:${input.when.toISOString()}`,
   });
+  // Invio subito: il controllo orario resta solo come nuovo tentativo in caso di errore.
+  await dispatchNow();
 }
 
 /** Avvisa la cliente (push sui suoi dispositivi + e-mail) dell'esito della richiesta. */
@@ -88,12 +94,20 @@ export async function notifyCustomerDecision(input: {
         url: "/prenota",
       };
   if (input.profileId) {
+    // Resta nel centro notifiche della cliente, con il contatore delle non lette.
+    await admin.from("customer_notifications").insert({
+      profile_id: input.profileId,
+      appointment_id: input.appointmentId,
+      title: payload.title,
+      body: payload.body,
+      url: payload.url,
+    });
     const { data } = await admin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth_key")
       .eq("profile_id", input.profileId)
       .is("disabled_at", null);
-    await sendToSubscriptions(admin, data ?? [], payload);
+    await sendToSubscriptions(admin, data ?? [], { ...payload, tag: `esito-${input.appointmentId}` });
   }
   if (input.email) {
     await admin.from("email_logs").insert({
@@ -104,7 +118,20 @@ export async function notifyCustomerDecision(input: {
       status: "pending",
       dedupe_key: `${input.accepted ? "accettata" : "rifiutata"}:${input.appointmentId}`,
     });
+    await dispatchNow();
   }
+}
+
+/** Messaggio alla cliente di un appuntamento: resta nel suo centro notifiche e arriva come push. */
+export async function notifyCustomerByAppointment(appointmentId: string, payload: { title: string; body: string; url: string }) {
+  const admin = createAdminSupabase();
+  if (!admin) return;
+  const { data } = await admin.from("appointments").select("customers(profile_id)").eq("id", appointmentId).maybeSingle();
+  const customer = data ? ((Array.isArray(data.customers) ? data.customers[0] : data.customers) as { profile_id?: string | null } | null) : null;
+  if (!customer?.profile_id) return;
+  await admin.from("customer_notifications").insert({ profile_id: customer.profile_id, appointment_id: appointmentId, ...payload });
+  const devices = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth_key").eq("profile_id", customer.profile_id).is("disabled_at", null);
+  await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: `appuntamento-${appointmentId}` });
 }
 
 export function appointmentSummary(serviceName: string, when: Date, code: string): string {

@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   Ban,
-  Bell,
   CalendarCheck,
   CalendarDays,
   CalendarPlus,
@@ -26,6 +25,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { formatDate, formatPrice, formatTime } from "@/lib/format";
+import { NotificationBell } from "@/components/ui/notification-bell";
+import { useLive } from "@/lib/live";
 import { RequestCard, type Request } from "@/components/admin/request-card";
 import { GreetingHero, HeroIconLink, SectionHead, greeting, todayLabel } from "@/components/ui/app-header";
 
@@ -62,8 +63,7 @@ export default function AdminHome() {
   const [now, setNow] = useState<Date | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
 
-  useEffect(() => {
-    setNow(new Date());
+  function reload() {
     void fetch("/api/admin/panoramica").then(async (response) => {
       const body = await response.json();
       if (!response.ok) setError(body.errore);
@@ -73,11 +73,18 @@ export default function AdminHome() {
       .then((response) => response.json())
       .then((body) => setRequests(body.richieste ?? []))
       .catch(() => undefined);
+  }
+
+  useEffect(() => {
+    setNow(new Date());
+    reload();
     void fetch("/api/sessione")
       .then((response) => response.json())
       .then((body) => setName(body.nome ?? ""))
       .catch(() => undefined);
   }, []);
+  // Nuove richieste e numeri aggiornati in tempo reale.
+  useLive(reload);
 
   const cards: { label: string; value: string; icon: LucideIcon }[] = stats
     ? [
@@ -106,9 +113,7 @@ export default function AdminHome() {
             <HeroIconLink href="/admin/impostazioni" label="Impostazioni">
               <Settings size={20} strokeWidth={2} />
             </HeroIconLink>
-            <HeroIconLink href="/admin/notifiche" label="Notifiche" tone="white" dot>
-              <Bell size={20} strokeWidth={2} />
-            </HeroIconLink>
+            <NotificationBell href="/admin/notifiche" />
           </>
         }
       />

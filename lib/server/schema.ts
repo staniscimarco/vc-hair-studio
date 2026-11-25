@@ -79,7 +79,7 @@ async function applyIfNeeded() {
 }
 
 /** Migrazioni aggiuntive, applicate in ordine e registrate in public.schema_migrations. */
-const EXTRA_MIGRATIONS = ["0002_promozioni_notifiche.sql", "0003_notifiche_anonime.sql"];
+const EXTRA_MIGRATIONS = ["0002_promozioni_notifiche.sql", "0003_notifiche_anonime.sql", "0004_centro_notifiche.sql"];
 
 async function pendingExtras(): Promise<string[]> {
   const admin = createAdminSupabase();

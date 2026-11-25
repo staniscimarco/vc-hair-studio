@@ -48,7 +48,7 @@ export default function ManualAppointmentsPage() {
   return (
     <section>
       <TitleHero title="Nuovo appuntamento" back="/admin" subtitle="Per telefonate, messaggi o richieste in salone. La cliente non deve registrarsi." />
-      <form action={submit} className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+      <form onSubmit={(event) => { event.preventDefault(); void submit(new FormData(event.currentTarget)); }} className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
         <div className="card grid gap-3">
           <div className="card-title"><span className="tile-icon"><UserRound size={20} /></span><h2>Cliente</h2></div>
           <label className="field">Scheda cliente

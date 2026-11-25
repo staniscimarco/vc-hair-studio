@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, House, Scissors, UserRound } from "lucide-react";
+import { CalendarDays, House, Scissors, Store, UserRound } from "lucide-react";
+import { NotificationBell } from "@/components/ui/notification-bell";
 
 const items = [
   { href: "/", label: "Home", icon: House },
@@ -57,9 +58,7 @@ export function CustomerTopNav() {
           {session?.ruolo === "admin" ? (
             <Link className="btn btn-soft btn-sm" href="/admin">Area salone</Link>
           ) : null}
-          <Link className="icon-btn is-soft" href="/i-miei-appuntamenti" aria-label="Promemoria appuntamenti" title="Promemoria appuntamenti">
-            <Bell size={19} strokeWidth={2} />
-          </Link>
+          <NotificationBell href="/notifiche" tone="soft" />
           {session?.autenticato ? (
             <Link className="btn btn-primary btn-sm" href="/prenota">Prenota ora</Link>
           ) : (
@@ -74,10 +73,19 @@ export function CustomerTopNav() {
 /** Mobile: barra inferiore bianca arrotondata, icona attiva piena viola. */
 export function CustomerTabBar() {
   const pathname = usePathname();
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    void fetch("/api/sessione")
+      .then((response) => response.json())
+      .then((body) => setAdmin(body.ruolo === "admin"))
+      .catch(() => undefined);
+  }, [pathname]);
   if (pathname.startsWith("/admin")) return null;
+  // L'amministratrice vede anche la scheda per tornare all'area salone.
+  const tabs = admin ? [...items.slice(0, 3), { href: "/admin", label: "Salone", icon: Store }] : items;
   return (
     <nav className="tabbar" aria-label="Navigazione">
-      {items.map((item) => {
+      {tabs.map((item) => {
         const Icon = item.icon;
         return (
           <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined}>

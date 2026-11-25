@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BellRing, ChevronRight, Download, Smartphone, FileText, KeyRound, LogOut, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
-import { fullAddress, profileSchema, streetOf } from "@/lib/validators";
+import { profileSchema } from "@/lib/validators";
 import { AddressField } from "@/components/auth/address-field";
 import { TitleHero } from "@/components/ui/app-header";
 import { openInstallHint } from "@/components/pwa/install-hint";
@@ -17,53 +17,65 @@ export default function ProfilePage() {
   const [complete, setComplete] = useState<{ next: string } | null>(null);
   const [profile, setProfile] = useState({ nome: "", cognome: "", telefono: "", email: "", indirizzo: "" });
 
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<{ message: string; field: string } | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("completa")) {
       const target = params.get("prossimo") ?? "/";
       setComplete({ next: target.startsWith("/") && !target.startsWith("//") ? target : "/" });
     }
-    void getBrowserSupabase().then(async (supabase) => {
-      if (!supabase) return;
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+    void fetch("/api/profilo").then(async (response) => {
+      if (response.status === 401) {
         router.push("/accesso?prossimo=/profilo");
         return;
       }
-      const row = await supabase.from("profiles").select("first_name, last_name, phone, email, address").eq("id", data.user.id).single();
-      setProfile({
-        nome: row.data?.first_name ?? "",
-        cognome: row.data?.last_name ?? "",
-        telefono: row.data?.phone ?? "",
-        email: row.data?.email ?? data.user.email ?? "",
-        indirizzo: streetOf((row.data as { address?: string } | null)?.address),
-      });
-    });
+      const body = await response.json().catch(() => null);
+      if (response.ok && body) setProfile(body);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
   }, [router]);
 
   async function save(formData: FormData) {
-    const supabase = await getBrowserSupabase();
-    if (!supabase) return;
-    const parsed = profileSchema.safeParse({
-      nome: formData.get("nome"),
-      cognome: formData.get("cognome"),
-      telefono: formData.get("telefono"),
-      indirizzo: formData.get("indirizzo"),
-    });
+    setFormError(null);
+    const values = {
+      nome: String(formData.get("nome") ?? ""),
+      cognome: String(formData.get("cognome") ?? ""),
+      telefono: String(formData.get("telefono") ?? ""),
+      indirizzo: String(formData.get("indirizzo") ?? ""),
+    };
+    const parsed = profileSchema.safeParse(values);
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "Controlla i dati.");
+      const issue = parsed.error.issues[0];
+      setFormError({ message: issue?.message ?? "Controlla i dati.", field: String(issue?.path[0] ?? "") });
       return;
     }
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return;
-    const { error } = await supabase
-      .from("profiles")
-      .update({ first_name: parsed.data.nome, last_name: parsed.data.cognome, phone: parsed.data.telefono, address: fullAddress(parsed.data.indirizzo) })
-      .eq("id", data.user.id);
-    if (error) toast.error("Non è stato possibile aggiornare il profilo.");
-    else {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/profilo", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        setFormError({ message: "La sessione è scaduta: accedi di nuovo per salvare.", field: "" });
+        return;
+      }
+      if (!response.ok) {
+        setFormError({ message: body.errore ?? "Non è stato possibile salvare. Riprova.", field: body.campo ?? "" });
+        return;
+      }
+      setProfile((current) => ({ ...current, ...parsed.data }));
       toast.success(complete ? "Perfetto, il tuo profilo è completo! ✨" : "Profilo aggiornato.");
-      if (complete) router.push(complete.next);
+      // Dopo il primo completamento si torna alla Home (o alla prenotazione in corso).
+      window.location.assign(complete?.next ?? "/");
+    } catch {
+      setFormError({ message: "Connessione assente: controlla la rete e riprova.", field: "" });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -72,7 +84,7 @@ export default function ProfilePage() {
     if (!supabase) return;
     const { error } = await supabase.auth.updateUser({ password: String(formData.get("password") ?? "") });
     if (error) toast.error("Non è stato possibile aggiornare la password.");
-    else toast.success("password aggiornata.");
+    else toast.success("Password aggiornata.");
   }
 
   async function requestDeletion() {
@@ -107,7 +119,14 @@ export default function ProfilePage() {
       ) : null}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
-        <form action={save} className="card grid gap-3">
+        <form
+          className="card grid gap-3"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save(new FormData(event.currentTarget));
+          }}
+        >
           <div className="card-title">
             <span className="tile-icon"><UserRound size={20} /></span>
             <h2>Dati personali</h2>
@@ -117,11 +136,19 @@ export default function ProfilePage() {
           <label className="field">Telefono<input name="telefono" type="tel" defaultValue={profile.telefono} key={`t-${profile.telefono}`} /></label>
           <AddressField defaultValue={profile.indirizzo} key={`a-${profile.indirizzo}`} />
           <p className="note m-0">E-mail: {profile.email}</p>
-          <button className="btn btn-primary btn-block" type="submit">Salva profilo</button>
+          {formError ? (
+            <p className="form-error" role="alert">
+              {formError.field === "indirizzo" ? "Indirizzo: " : formError.field === "telefono" ? "Telefono: " : formError.field === "nome" ? "Nome: " : formError.field === "cognome" ? "Cognome: " : ""}
+              {formError.message}
+            </p>
+          ) : null}
+          <button className="btn btn-primary btn-block" type="submit" disabled={saving || !loaded}>
+            {saving ? "Salvataggio…" : complete ? "Salva e continua" : "Salva profilo"}
+          </button>
         </form>
 
         <div className="grid gap-5">
-          <form action={changePassword} className="card grid gap-3">
+          <form onSubmit={(event) => { event.preventDefault(); void changePassword(new FormData(event.currentTarget)); }} className="card grid gap-3">
             <div className="card-title">
               <span className="tile-icon"><KeyRound size={20} /></span>
               <h2>Sicurezza</h2>

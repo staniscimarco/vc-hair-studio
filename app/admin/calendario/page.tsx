@@ -11,7 +11,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <TitleHero
         title="Agenda"
         back="/admin"
-        subtitle="Trascina un appuntamento per spostarlo, seleziona una fascia libera per inserirne uno."
+        subtitle="Tocca un appuntamento per vederlo, cambiarne lo stato, spostarlo o eliminarlo."
         action={
           <HeroIconLink href="/admin/appuntamenti" label="Nuovo appuntamento" tone="white">
             <CalendarPlus size={20} strokeWidth={2} />

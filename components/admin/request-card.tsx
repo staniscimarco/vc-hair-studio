@@ -6,6 +6,7 @@ import { CalendarPlus, Check, Clock, MapPin, Navigation, Phone, X } from "lucide
 import { appleMapsUrl, googleMapsUrl } from "@/lib/maps";
 import { formatPrice, formatTime } from "@/lib/format";
 import { ServiceArt } from "@/components/ui/service-icon";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export type Request = {
   id: string;
@@ -33,8 +34,9 @@ export function RequestCard({ request, onDone }: { request: Request; onDone?: (s
   const minutes = Math.round((new Date(request.ends_at).getTime() - start.getTime()) / 60000);
   const day = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Rome" }).format(start);
 
+  const [askReject, setAskReject] = useState(false);
+
   async function decide(accept: boolean) {
-    if (!accept && !confirm("Rifiutare la richiesta? La cliente riceverà una notifica e potrà scegliere un altro orario.")) return;
     setBusy(accept ? "si" : "no");
     const response = await fetch("/api/admin/richieste", {
       method: "POST",
@@ -92,7 +94,7 @@ export function RequestCard({ request, onDone }: { request: Request; onDone?: (s
           <button className="btn btn-primary btn-sm" type="button" disabled={busy !== null} onClick={() => void decide(true)}>
             <Check size={16} /> {busy === "si" ? "…" : "Accetta"}
           </button>
-          <button className="btn btn-danger btn-sm" type="button" disabled={busy !== null} onClick={() => void decide(false)}>
+          <button className="btn btn-danger btn-sm" type="button" disabled={busy !== null} onClick={() => setAskReject(true)}>
             <X size={16} /> {busy === "no" ? "…" : "Rifiuta"}
           </button>
           {customer?.phone ? (
@@ -100,6 +102,20 @@ export function RequestCard({ request, onDone }: { request: Request; onDone?: (s
           ) : <span />}
         </div>
       ) : null}
+      <ConfirmDialog
+        open={askReject}
+        tone="danger"
+        icon={<X size={30} />}
+        title="Rifiutare la richiesta?"
+        message="La cliente riceverà una notifica e potrà scegliere un altro orario."
+        confirmLabel="Rifiuta"
+        cancelLabel="Indietro"
+        onCancel={() => setAskReject(false)}
+        onConfirm={async () => {
+          setAskReject(false);
+          await decide(false);
+        }}
+      />
     </article>
   );
 }

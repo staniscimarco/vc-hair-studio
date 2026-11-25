@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -10,8 +10,9 @@ import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
 import type { EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { toast } from "sonner";
-import { appleMapsUrl, googleMapsUrl } from "@/lib/maps";
-import { RequestCard, type Request } from "@/components/admin/request-card";
+import { AppointmentSheet, type AgendaAppointment } from "@/components/admin/appointment-sheet";
+import { MobileAgenda } from "@/components/admin/mobile-agenda";
+import { notifyLive, useLive } from "@/lib/live";
 
 type Appointment = {
   id: string;
@@ -21,6 +22,15 @@ type Appointment = {
   status: string;
   customers: { first_name?: string; last_name?: string; phone?: string; address?: string } | { first_name?: string; last_name?: string; phone?: string; address?: string }[] | null;
   services: { name?: string; color?: string } | { name?: string; color?: string }[] | null;
+};
+
+const blockLabels: Record<string, string> = {
+  pausa: "Pausa",
+  impegno_personale: "Impegno",
+  ferie: "Ferie",
+  festivita: "Festività",
+  chiusura_straordinaria: "Chiuso",
+  altro: "Non disponibile",
 };
 
 const statusColor: Record<string, string> = {
@@ -39,12 +49,22 @@ function one<T>(value: T | T[] | null): T | null {
 
 export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focusId?: string }) {
   const [events, setEvents] = useState<object[]>([]);
-  const [mobile, setMobile] = useState(false);
+  const [mobile, setMobile] = useState<boolean | null>(null);
+  const [slot, setSlot] = useState({ minutes: 60, from: "08:00:00", to: "20:00:00" });
+  const [refreshKey, setRefreshKey] = useState(0);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [draft, setDraft] = useState<{ start: string; end: string } | null>(null);
   const router = useRouter();
+  const range = useRef<{ from: string; to: string } | null>(null);
+
+  function reload() {
+    if (range.current) void load(range.current.from, range.current.to);
+  }
+  // L'agenda si aggiorna da sola: nuove prenotazioni, accettazioni e annullamenti.
+  useLive(reload);
 
   async function load(from: string, to: string) {
+    range.current = { from, to };
     const response = await fetch(`/api/admin/agenda?da=${encodeURIComponent(from)}&a=${encodeURIComponent(to)}`);
     const body = await response.json();
     if (!response.ok) {
@@ -68,7 +88,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
     });
     const blocks = (body.blocchi as { id: string; starts_at: string; ends_at: string; reason: string | null }[]).map((item) => ({
       id: `blocco-${item.id}`,
-      title: item.reason || "Non disponibile",
+      title: blockLabels[item.reason ?? ""] ?? "Non disponibile",
       start: item.starts_at,
       end: item.ends_at,
       display: "background",
@@ -76,6 +96,21 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
     }));
     setEvents([...appointments, ...blocks]);
   }
+
+  // Intervallo dell'agenda e fascia oraria presi dalle impostazioni del salone (es. ogni ora).
+  useEffect(() => {
+    void Promise.all([
+      fetch("/api/admin/impostazioni").then((response) => response.json()).catch(() => ({})),
+      fetch("/api/admin/eccezioni").then((response) => response.json()).catch(() => ({})),
+    ]).then(([settings, availability]) => {
+      const minutes = Number(settings.slotMinutes) > 0 ? Number(settings.slotMinutes) : 60;
+      const hours = (availability.orari ?? []) as { start_minute: number; end_minute: number }[];
+      const first = hours.length ? Math.min(...hours.map((row) => row.start_minute)) : 8 * 60;
+      const last = hours.length ? Math.max(...hours.map((row) => row.end_minute)) : 20 * 60;
+      const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}:00`;
+      setSlot({ minutes, from: clock(Math.max(0, Math.floor(first / 60) * 60 - 60)), to: clock(Math.min(24 * 60, Math.ceil(last / 60) * 60 + 60)) });
+    });
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
@@ -96,25 +131,30 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
       info.revert();
       const body = await response.json();
       toast.error(body.errore || "Spostamento non consentito.");
-    }
+    } else toast.success("Appuntamento spostato: la cliente è stata avvisata.");
   }
 
   return (
     <div className="salon-agenda card p-3 lg:p-5">
+      {mobile === null ? <div className="skeleton" style={{ height: 320 }} /> : null}
+      {mobile ? (
+        <MobileAgenda focusDate={focusDate} refreshKey={refreshKey} onSelect={(item) => setSelected(item as unknown as Appointment)} />
+      ) : null}
+      {mobile === false ? (
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
         locale={itLocale}
-        initialView={mobile ? "timeGridDay" : "timeGridWeek"}
+        initialView="timeGridWeek"
         initialDate={focusDate}
-        headerToolbar={mobile
-          ? { left: "prev,next", center: "title", right: "timeGridDay,listWeek" }
-          : { left: "prev,next today", center: "title", right: "timeGridDay,timeGridWeek,dayGridMonth,listWeek" }}
+        headerToolbar={{ left: "prev,next today", center: "title", right: "timeGridDay,timeGridWeek,dayGridMonth,listWeek" }}
         buttonIcons={false}
         buttonText={{ prev: "‹", next: "›", today: "Oggi", month: "Mese", week: "Settimana", day: "Giorno", list: "Elenco" }}
         allDayText="Intera giornata"
-        slotMinTime="07:00:00"
-        slotMaxTime="21:00:00"
-        slotDuration="00:15:00"
+        slotMinTime={slot.from}
+        slotMaxTime={slot.to}
+        slotDuration={`${String(Math.floor(slot.minutes / 60)).padStart(2, "0")}:${String(slot.minutes % 60).padStart(2, "0")}:00`}
+        snapDuration="00:15:00"
+        slotLabelInterval={`${String(Math.floor(slot.minutes / 60)).padStart(2, "0")}:${String(slot.minutes % 60).padStart(2, "0")}:00`}
         nowIndicator
         selectable
         editable
@@ -126,6 +166,7 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
         eventClick={(info: EventClickArg) => setSelected(info.event.extendedProps as Appointment)}
         select={(info) => setDraft({ start: info.startStr, end: info.endStr })}
       />
+      ) : null}
       {draft ? (
         <>
           <button className="sheet-scrim" type="button" aria-label="Chiudi" onClick={() => setDraft(null)} />
@@ -141,52 +182,16 @@ export function SalonCalendar({ focusDate, focusId }: { focusDate?: string; focu
         </>
       ) : null}
       {selected?.id ? (
-        <div className="card-soft mt-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="m-0 text-lg">Dettaglio appuntamento</h2>
-            <button className="btn btn-white btn-xs" type="button" onClick={() => setSelected(null)}>Chiudi</button>
-          </div>
-          <p className="mt-1 text-sm">
-            {one(selected.services)?.name ?? "Trattamento"} · {one(selected.customers)?.first_name ?? ""} {one(selected.customers)?.last_name ?? ""}
-            {one(selected.customers)?.phone ? <> · <a className="font-medium text-primary-strong" href={`tel:${one(selected.customers)?.phone}`}>{one(selected.customers)?.phone}</a></> : null}
-          </p>
-          <p className="note m-0">Codice {selected.code}</p>
-          {one(selected.customers)?.address ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <a className="btn btn-white btn-xs" href={appleMapsUrl(one(selected.customers)!.address!)} target="_blank" rel="noreferrer">Itinerario Apple Mappe</a>
-              <a className="btn btn-white btn-xs" href={googleMapsUrl(one(selected.customers)!.address!)} target="_blank" rel="noreferrer">Google Maps</a>
-            </div>
-          ) : null}
-          {selected.status !== "pending" && selected.status !== "cancelled" ? (
-            <a className="btn btn-white btn-xs mt-2" href={`/api/admin/evento/${selected.id}`}>Aggiungi al mio calendario</a>
-          ) : null}
-          {selected.status === "pending" ? (
-            <div className="mt-3">
-              <RequestCard request={selected as unknown as Request} onDone={(status) => setSelected({ ...selected, status })} />
-            </div>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(["confirmed", "in_progress", "completed", "cancelled", "no_show"] as const).map((status) => (
-              <button
-                key={status}
-                className={`chip ${selected.status === status ? "is-on" : "bg-white"}`}
-                type="button"
-                onClick={async () => {
-                  await fetch("/api/admin/agenda", {
-                    method: "PATCH",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ id: selected.id, stato: status }),
-                  });
-                  setSelected({ ...selected, status });
-                  toast.success("Stato aggiornato.");
-                }}
-              >
-                {status === "confirmed" ? "Confermato" : status === "in_progress" ? "In corso" : status === "completed" ? "Completato" : status === "cancelled" ? "Annullato" : "Mancata presentazione"}
-              </button>
-            ))}
-          </div>
-          <p className="note mt-3">La registrazione degli incassi non sostituisce gli adempimenti fiscali.</p>
-        </div>
+        <AppointmentSheet
+          key={selected.id}
+          appointment={selected as unknown as AgendaAppointment}
+          onClose={() => setSelected(null)}
+          onChanged={() => {
+            reload();
+            setRefreshKey((value) => value + 1);
+            notifyLive();
+          }}
+        />
       ) : null}
     </div>
   );

@@ -188,7 +188,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
             </div>
           ) : null}
           {mfa ? (
-            <form className="mt-6 grid gap-3" action={verifyMfa}>
+            <form className="mt-6 grid gap-3" onSubmit={(event) => { event.preventDefault(); void verifyMfa(new FormData(event.currentTarget)); }}>
               <label className="field">
                 Codice di verifica
                 <input name="codice" inputMode="numeric" autoComplete="one-time-code" required />
@@ -196,7 +196,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
               <button className="btn btn-primary btn-block" type="submit">Verifica</button>
             </form>
           ) : (
-            <form className={`${mode === "accesso" || mode === "registrazione" ? "mt-2" : "mt-6"} grid gap-3`} action={onSubmit}>
+            <form className={`${mode === "accesso" || mode === "registrazione" ? "mt-2" : "mt-6"} grid gap-3`} onSubmit={(event) => { event.preventDefault(); void onSubmit(new FormData(event.currentTarget)); }}>
               {mode === "registrazione" ? (
                 <div className="field-grid cols-2">
                   <Field name="nome" label="Nome" />

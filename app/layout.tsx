@@ -7,6 +7,7 @@ import { InstallHint } from "@/components/pwa/install-hint";
 import { NotificationPrompt } from "@/components/pwa/notification-prompt";
 import { Splash } from "@/components/pwa/splash";
 import { PullToRefresh } from "@/components/pwa/pull-to-refresh";
+import { ServiceWorkerBridge } from "@/components/pwa/sw-bridge";
 
 const lexend = Lexend({
   subsets: ["latin"],
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <InstallHint />
         <NotificationPrompt />
         <PullToRefresh />
+        <ServiceWorkerBridge />
         <Splash />
         <Toaster position="top-center" richColors />
       </body>

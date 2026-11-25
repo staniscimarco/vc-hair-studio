@@ -6,6 +6,8 @@ import { Bell, BellRing, CalendarClock, Check, Megaphone, Send, ShieldCheck, Sma
 import { SectionHead, TitleHero } from "@/components/ui/app-header";
 import { openInstallHint } from "@/components/pwa/install-hint";
 import { enablePush } from "@/lib/push-client";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { notifyLive, useLive } from "@/lib/live";
 
 type Device = { id: string; user_agent: string | null; created_at: string; disabled_at: string | null };
 type Notice = { id: string; title: string; body: string; url: string; read_at: string | null; created_at: string };
@@ -30,6 +32,7 @@ export default function NotificationsPage() {
   const [message, setMessage] = useState({ titolo: "", messaggio: "", url: "/prenota" });
   const [preview, setPreview] = useState<{ title: string; body: string } | null | undefined>(undefined);
   const [sending, setSending] = useState(false);
+  const [ask, setAsk] = useState<null | { kind: "tutte" | "posti"; preview: { title: string; body: string } }>(null);
 
   async function load() {
     const response = await fetch("/api/admin/notifiche");
@@ -46,7 +49,14 @@ export default function NotificationsPage() {
     setApproval(body.approvazione !== false);
     setReady(Boolean(body.vapidConfigurato));
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load().then(async () => {
+      // Aprendo questa pagina le notifiche delle prenotazioni risultano lette.
+      await fetch("/api/notifiche/centro", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => undefined);
+      notifyLive();
+    });
+  }, []);
+  useLive(() => void load());
 
   async function post(payload: object) {
     const response = await fetch("/api/admin/notifiche", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -62,7 +72,6 @@ export default function NotificationsPage() {
   }
 
   async function sendToAll() {
-    if (!confirm(`Inviare la notifica a ${subscribers} ${subscribers === 1 ? "cliente" : "clienti"}?`)) return;
     setSending(true);
     const { ok, body } = await post({ azione: "invia-clienti", ...message });
     setSending(false);
@@ -135,7 +144,7 @@ export default function NotificationsPage() {
               <option value="/i-miei-appuntamenti">I suoi appuntamenti</option>
             </select>
           </label>
-          <button className="btn btn-primary btn-block" type="button" disabled={sending || !message.titolo || !message.messaggio} onClick={() => void sendToAll()}>
+          <button className="btn btn-primary btn-block" type="button" disabled={sending || !message.titolo || !message.messaggio} onClick={() => setAsk({ kind: "tutte", preview: { title: message.titolo, body: message.messaggio } })}>
             <Send size={17} /> {sending ? "Invio in corso…" : "Invia a tutte"}
           </button>
         </div>
@@ -169,10 +178,13 @@ export default function NotificationsPage() {
                 setPreview(body.messaggio ?? null);
               }}>Anteprima</button>
               <button className="btn btn-outline btn-sm" type="button" onClick={async () => {
-                const { body } = await post({ azione: "invia-disponibilita" });
-                if (body.inviata) toast.success(`Inviata a ${body.ricevute} dispositivi.`);
-                else toast.message(body.motivo ?? "Nessun invio.");
-                await load();
+                const { body } = await post({ azione: "anteprima-disponibilita" });
+                if (!body.messaggio) {
+                  setPreview(null);
+                  toast.message("Oggi e domani non ci sono posti liberi da segnalare.");
+                  return;
+                }
+                setAsk({ kind: "posti", preview: body.messaggio });
               }}>Invia adesso</button>
             </div>
           </div>
@@ -253,6 +265,24 @@ export default function NotificationsPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(ask)}
+        icon={<Send size={30} />}
+        title={ask?.kind === "posti" ? "Inviare i posti liberi?" : "Inviare a tutte le clienti?"}
+        message={<>La notifica arriverà a <strong>{subscribers}</strong> {subscribers === 1 ? "cliente iscritta" : "clienti iscritte"}. Ecco come la vedranno:</>}
+        preview={ask?.preview ?? null}
+        confirmLabel="Sì, invia ora"
+        onCancel={() => setAsk(null)}
+        onConfirm={async () => {
+          if (ask?.kind === "posti") {
+            const { body } = await post({ azione: "invia-disponibilita" });
+            if (body.inviata) toast.success(`Inviata: ricevuta da ${body.ricevute} ${body.ricevute === 1 ? "dispositivo" : "dispositivi"}.`);
+            else toast.message(body.motivo ?? "Nessun invio.");
+            await load();
+          } else await sendToAll();
+          setAsk(null);
+        }}
+      />
     </section>
   );
 }

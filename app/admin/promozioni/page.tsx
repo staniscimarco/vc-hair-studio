@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { BellRing, Megaphone, Pencil, Sparkles, Tag, Trash2 } from "lucide-react";
 import { SectionHead, TitleHero } from "@/components/ui/app-header";
 import { ServiceIcon } from "@/components/ui/service-icon";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Promotion = {
   id: string;
@@ -67,6 +68,8 @@ export default function PromotionsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [draft, setDraft] = useState<Draft>(empty);
   const [busy, setBusy] = useState(false);
+  const [askPublish, setAskPublish] = useState(false);
+  const [askDelete, setAskDelete] = useState<Promotion | null>(null);
   const [error, setError] = useState("");
   const today = iso(new Date());
 
@@ -161,7 +164,7 @@ export default function PromotionsPage() {
             <span className="flex items-center gap-2"><BellRing size={16} /> Avvisa tutte le clienti con una notifica</span>
             <input type="checkbox" checked={draft.notifica} onChange={(event) => setDraft({ ...draft, notifica: event.target.checked })} />
           </label>
-          <button className="btn btn-primary btn-block" type="button" disabled={busy} onClick={() => void save()}>
+          <button className="btn btn-primary btn-block" type="button" disabled={busy || !draft.titolo.trim()} onClick={() => setAskPublish(true)}>
             <Megaphone size={18} /> {busy ? "Pubblicazione…" : draft.notifica ? "Pubblica e avvisa le clienti" : "Pubblica promozione"}
           </button>
           {draft.id ? <button className="btn btn-soft btn-block" type="button" onClick={() => setDraft(empty())}>Annulla modifica</button> : null}
@@ -206,15 +209,38 @@ export default function PromotionsPage() {
                 setDraft({ ...row, notifica: false });
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}><Pencil size={15} /></button>
-              <button className="icon-btn is-white" style={{ width: 36, height: 36, color: "var(--danger)" }} type="button" aria-label="Elimina" onClick={async () => {
-                if (!confirm(`Eliminare la promozione «${row.titolo}»?`)) return;
-                await fetch(`/api/admin/promozioni?id=${row.id}`, { method: "DELETE" });
-                await load();
-              }}><Trash2 size={15} /></button>
+              <button className="icon-btn is-white" style={{ width: 36, height: 36, color: "var(--danger)" }} type="button" aria-label="Elimina" onClick={() => setAskDelete(row)}><Trash2 size={15} /></button>
             </div>
           </article>
         ))}
       </div>
+      <ConfirmDialog
+        open={askPublish}
+        icon={<Megaphone size={30} />}
+        title={draft.notifica ? "Pubblicare e avvisare le clienti?" : "Pubblicare la promozione?"}
+        message={draft.notifica ? "Tutte le clienti con le notifiche attive riceveranno questo messaggio:" : "La promozione comparirà in app nelle date scelte."}
+        preview={draft.notifica ? { title: `${draft.titolo || "Promozione"}${draft.sconto ? ` · -${draft.sconto}%` : ""} 🖤`, body: draft.sottotitolo || "Approfitta della promozione e prenota il tuo momento di bellezza." } : null}
+        confirmLabel={draft.notifica ? "Pubblica e invia" : "Pubblica"}
+        onCancel={() => setAskPublish(false)}
+        onConfirm={async () => {
+          await save();
+          setAskPublish(false);
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(askDelete)}
+        tone="danger"
+        icon={<Trash2 size={28} />}
+        title="Eliminare la promozione?"
+        message={askDelete ? `«${askDelete.titolo}» non sarà più visibile alle clienti.` : ""}
+        confirmLabel="Elimina"
+        onCancel={() => setAskDelete(null)}
+        onConfirm={async () => {
+          if (askDelete) await fetch(`/api/admin/promozioni?id=${askDelete.id}`, { method: "DELETE" });
+          setAskDelete(null);
+          await load();
+        }}
+      />
     </section>
   );
 }

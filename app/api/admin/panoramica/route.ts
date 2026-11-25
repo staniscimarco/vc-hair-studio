@@ -2,6 +2,7 @@ import { ensureDatabase } from "@/lib/server/schema";
 import { NextResponse } from "next/server";
 import { addDays, romeDate, zonedDateTime } from "@/lib/availability/time";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
+import { adminProfileIds } from "@/lib/server/admins";
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     const endTomorrow = zonedDateTime(addDays(tomorrow, 1), 0)?.toISOString();
     const [appointments, customers, hours] = await Promise.all([
       admin.from("appointments").select("id, starts_at, ends_at, status, price_cents, amount_paid_cents, created_at").gte("starts_at", start).lt("starts_at", endTomorrow),
-      admin.from("customers").select("id", { count: "exact", head: true }).is("archived_at", null),
+      admin.from("customers").select("id, profile_id").is("archived_at", null).limit(5000),
       admin.from("working_hours").select("weekday, start_minute, end_minute").eq("weekday", isoWeekdayNumber(today)),
     ]);
     const rows = appointments.data ?? [];
@@ -34,7 +35,10 @@ export async function GET() {
       nuove: rows.filter((row) => romeDate(new Date(row.created_at)) === today).length,
       completati: inToday.filter((row) => row.status === "completed").length,
       annullati: inToday.filter((row) => row.status === "cancelled").length,
-      clienti: customers.count ?? 0,
+      clienti: await (async () => {
+        const hidden = new Set(await adminProfileIds(admin));
+        return (customers.data ?? []).filter((row) => !(row.profile_id && hidden.has(String(row.profile_id)))).length;
+      })(),
       orePrenotate: Math.round(bookedMinutes) / 60,
       oreDisponibili: Math.max(0, Math.round(openMinutes - bookedMinutes)) / 60,
       incassoPrevisto: sum(activeToday.filter((row) => row.price_cents != null), "price_cents"),

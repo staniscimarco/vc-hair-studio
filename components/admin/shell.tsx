@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { CountBadge, useUnreadCount } from "@/components/ui/notification-bell";
+import { logout } from "@/lib/logout";
 import {
   Ban,
   Bell,
@@ -14,7 +15,10 @@ import {
   ListChecks,
   Plus,
   Scissors,
+  LayoutGrid,
+  LogOut,
   Settings,
+  ShieldCheck,
   Tag,
   Users,
   X,
@@ -26,29 +30,31 @@ const tabs = [
   { href: "/admin/calendario", label: "Agenda", icon: CalendarDays },
   { href: "/admin/clienti", label: "Clienti", icon: Users },
   { href: "/admin/notifiche", label: "Notifiche", icon: Bell },
-  { href: "/admin/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
 /** Desktop: barra laterale completa, raggruppata. */
-const groups = [
+type MenuItem = { href: string; label: string; short?: string; icon: typeof House };
+
+const groups: { label: string; items: MenuItem[] }[] = [
   {
     label: "Salone",
     items: [
       { href: "/admin", label: "Panoramica", icon: House },
       { href: "/admin/calendario", label: "Agenda", icon: CalendarDays },
-      { href: "/admin/appuntamenti", label: "Nuovo appuntamento", icon: CalendarPlus },
+      { href: "/admin/appuntamenti", label: "Nuovo appuntamento", short: "Nuovo", icon: CalendarPlus },
       { href: "/admin/clienti", label: "Clienti", icon: Users },
     ],
   },
   {
     label: "Gestione",
     items: [
-      { href: "/admin/promozioni", label: "Promozioni", icon: Tag },
+      { href: "/admin/promozioni", label: "Promozioni", short: "Promo", icon: Tag },
       { href: "/admin/servizi", label: "Servizi", icon: Scissors },
-      { href: "/admin/disponibilita", label: "Disponibilità", icon: Ban },
+      { href: "/admin/disponibilita", label: "Disponibilità", short: "Orari", icon: Ban },
       { href: "/admin/notifiche", label: "Notifiche", icon: Bell },
-      { href: "/admin/impostazioni", label: "Impostazioni", icon: Settings },
-      { href: "/admin/configurazione", label: "Prima configurazione", icon: ListChecks },
+      { href: "/admin/impostazioni", label: "Impostazioni", short: "Opzioni", icon: Settings },
+      { href: "/admin/amministratori", label: "Amministratori", short: "Admin", icon: ShieldCheck },
+      { href: "/admin/configurazione", label: "Prima configurazione", short: "Configura", icon: ListChecks },
     ],
   },
 ];
@@ -66,46 +72,12 @@ function isCurrent(pathname: string, href: string) {
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const unread = useUnreadCount();
   const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const inMenu = !tabs.some((item) => isCurrent(pathname, item.href));
   return (
     <div className="admin-frame">
-      <aside className="sidebar" aria-label="Menu amministratore">
-        <Link href="/admin" className="brand">
-          <span className="brand-mark">
-            <Image src="/brand/vale.png" alt="" width={46} height={46} unoptimized />
-          </span>
-          <span>
-            VC Hair Studio
-            <small className="block text-[11px] font-medium text-muted">Area salone</small>
-          </span>
-        </Link>
-        {groups.map((group) => (
-          <nav key={group.label} aria-label={group.label}>
-            <p className="sidebar-label">{group.label}</p>
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} className="side-link" href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined}>
-                  <Icon size={19} strokeWidth={1.9} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        ))}
-        <div className="sidebar-foot">
-          <div className="sidebar-promo">
-            <strong>Agenda di oggi</strong>
-            <p>Inserisci al volo un appuntamento preso al telefono.</p>
-            <Link className="btn btn-accent btn-sm w-full" href="/admin/appuntamenti">
-              <Plus size={16} /> Nuovo appuntamento
-            </Link>
-          </div>
-          <Link className="side-link mt-3" href="/">
-            <House size={19} strokeWidth={1.9} /> Vai al sito clienti
-          </Link>
-        </div>
-      </aside>
 
       <div className="app-screen">{children}</div>
 
@@ -141,16 +113,78 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </>
       ) : null}
-      <nav className="tabbar" aria-label="Navigazione amministratore">
+      {menu ? (
+        <>
+          <button className="sheet-scrim" type="button" aria-label="Chiudi menu" onClick={() => setMenu(false)} />
+          <div className="sheet-panel menu-sheet" role="dialog" aria-label="Menu">
+            <div className="sheet-handle" />
+            <div className="flex items-center justify-between">
+              <h2>Menu</h2>
+              <button className="icon-btn is-soft" style={{ width: 36, height: 36 }} type="button" aria-label="Chiudi" onClick={() => setMenu(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            {groups.map((group) => (
+              <div key={group.label} className="mt-3">
+                <p className="eyebrow">{group.label}</p>
+                <div className="menu-grid">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link key={item.href} href={item.href} className="menu-item" aria-current={isCurrent(pathname, item.href) ? "page" : undefined} onClick={() => setMenu(false)}>
+                        <span className="tile-icon"><Icon size={20} /></span>
+                        {item.label}
+                        {item.href === "/admin/notifiche" ? <CountBadge count={unread} /> : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <Link className="btn btn-soft" href="/" onClick={() => setMenu(false)}>
+                <House size={17} /> Sito clienti
+              </Link>
+              <button className="btn btn-danger" type="button" onClick={() => void logout()}>
+                <LogOut size={17} /> Esci
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+      {/* Computer: barra in basso con tutte le voci. */}
+      <nav className="tabbar admin-bar-desktop" aria-label="Menu amministratore">
+        {groups.flatMap((group) => group.items).map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined} className="relative" title={item.label}>
+              <Icon size={21} strokeWidth={1.8} className={item.icon === House ? "tab-fill" : undefined} />
+              {item.href === "/admin/notifiche" ? <CountBadge count={unread} className="on-tab" /> : null}
+              <span>{item.short ?? item.label}</span>
+            </Link>
+          );
+        })}
+        <button type="button" className="tab-button" onClick={() => void logout()} title="Esci">
+          <LogOut size={21} strokeWidth={1.8} />
+          <span>Esci</span>
+        </button>
+      </nav>
+      {/* Telefono: quattro voci principali + Menu con tutto il resto. */}
+      <nav className="tabbar admin-bar-mobile" aria-label="Navigazione amministratore">
         {tabs.map((item) => {
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined}>
+            <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined} className="relative">
               <Icon size={23} strokeWidth={1.7} className={item.icon === House ? "tab-fill" : undefined} />
+              {item.href === "/admin/notifiche" ? <CountBadge count={unread} className="on-tab" /> : null}
               {item.label}
             </Link>
           );
         })}
+        <button type="button" className="tab-button" aria-current={inMenu || menu ? "page" : undefined} onClick={() => setMenu(true)}>
+          <LayoutGrid size={23} strokeWidth={1.7} />
+          Menu
+        </button>
       </nav>
     </div>
   );
