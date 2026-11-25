@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sameOrigin } from "@/lib/security/http";
 import { cancelAppointment, createManualBooking, decideAppointment, rescheduleAppointment } from "@/lib/server/bookings";
-import { notifyCustomerByAppointment } from "@/lib/server/notices";
+import { notifyCustomerByAppointment, notifyCustomerProfile } from "@/lib/server/notices";
 import { formatDateLong, formatTime } from "@/lib/format";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
 import { loadService } from "@/lib/server/schedule";
@@ -142,26 +142,34 @@ export async function PATCH(request: Request) {
   }
 }
 
-/** Elimina definitivamente un appuntamento (es. inserito per errore). Se era futuro, avvisa la cliente. */
+/** Elimina definitivamente un appuntamento (es. inserito per errore). Se era futuro, avvisa la cliente dopo l'eliminazione. */
 export async function DELETE(request: Request) {
   try {
     if (!sameOrigin(request)) return NextResponse.json({ errore: "Richiesta non consentita." }, { status: 403 });
+    await ensureDatabase().catch(() => undefined);
     const { admin } = await requireAdmin();
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return NextResponse.json({ errore: "Appuntamento non indicato." }, { status: 400 });
-    const current = await admin.from("appointments").select("status, starts_at, services(name)").eq("id", id).maybeSingle();
+    const current = await admin.from("appointments").select("status, starts_at, services(name), customers(profile_id)").eq("id", id).maybeSingle();
     if (!current.data) return NextResponse.json({ errore: "Appuntamento non trovato." }, { status: 404 });
+
+    const { error } = await admin.from("appointments").delete().eq("id", id);
+    if (error) {
+      console.error("elimina-appuntamento", error.message);
+      return NextResponse.json({ errore: "Non è stato possibile eliminare l'appuntamento." }, { status: 500 });
+    }
+
+    // Avviso solo a eliminazione riuscita, e solo per appuntamenti futuri non già annullati.
     const when = new Date(current.data.starts_at);
-    if (when.getTime() > Date.now() && current.data.status !== "cancelled") {
+    const customer = (Array.isArray(current.data.customers) ? current.data.customers[0] : current.data.customers) as { profile_id?: string | null } | null;
+    if (customer?.profile_id && when.getTime() > Date.now() && current.data.status !== "cancelled") {
       const serviceName = ((Array.isArray(current.data.services) ? current.data.services[0] : current.data.services) as { name?: string } | null)?.name ?? "Il tuo appuntamento";
-      await notifyCustomerByAppointment(id, {
+      await notifyCustomerProfile(customer.profile_id, {
         title: "Appuntamento annullato",
         body: `${serviceName} di ${formatDateLong(when)} alle ${formatTime(when)} è stato annullato dal salone. Scegli un nuovo orario quando vuoi.`,
         url: "/prenota",
       });
     }
-    const { error } = await admin.from("appointments").delete().eq("id", id);
-    if (error) return NextResponse.json({ errore: "Non è stato possibile eliminare l'appuntamento." }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error);

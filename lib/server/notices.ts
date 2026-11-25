@@ -129,9 +129,16 @@ export async function notifyCustomerByAppointment(appointmentId: string, payload
   const { data } = await admin.from("appointments").select("customers(profile_id)").eq("id", appointmentId).maybeSingle();
   const customer = data ? ((Array.isArray(data.customers) ? data.customers[0] : data.customers) as { profile_id?: string | null } | null) : null;
   if (!customer?.profile_id) return;
-  await admin.from("customer_notifications").insert({ profile_id: customer.profile_id, appointment_id: appointmentId, ...payload });
-  const devices = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth_key").eq("profile_id", customer.profile_id).is("disabled_at", null);
-  await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: `appuntamento-${appointmentId}` });
+  await notifyCustomerProfile(customer.profile_id, payload, appointmentId);
+}
+
+/** Come sopra, quando l'appuntamento non esiste più (es. dopo l'eliminazione). */
+export async function notifyCustomerProfile(profileId: string, payload: { title: string; body: string; url: string }, appointmentId: string | null = null) {
+  const admin = createAdminSupabase();
+  if (!admin) return;
+  await admin.from("customer_notifications").insert({ profile_id: profileId, appointment_id: appointmentId, ...payload });
+  const devices = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth_key").eq("profile_id", profileId).is("disabled_at", null);
+  await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: appointmentId ? `appuntamento-${appointmentId}` : undefined });
 }
 
 export function appointmentSummary(serviceName: string, when: Date, code: string): string {
