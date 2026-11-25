@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  --blush: #e8b4b8;
+  --blush-soft: #f8e8e8;
+  --rose: #b76e79;
+  --cream: #fff8f4;
+  --cocoa: #69423c;
+  --ink: #302626;
+  --white: #ffffff;
+  --lilac: #c4b5d4;
+  --ok: #2f6b4f;
+  --muted: color-mix(in srgb, var(--ink) 62%, white);
+  --line: color-mix(in srgb, var(--cocoa) 16%, white);
+  --shadow: 0 18px 50px color-mix(in srgb, var(--cocoa) 10%, transparent);
+}
+
+@theme inline {
+  --color-blush: var(--blush);
+  --color-blush-soft: var(--blush-soft);
+  --color-rose: var(--rose);
+  --color-cream: var(--cream);
+  --color-cocoa: var(--cocoa);
+  --color-ink: var(--ink);
+  --color-lilac: var(--lilac);
+  --color-ok: var(--ok);
+  --color-line: var(--line);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, var(--blush-soft), transparent 60%),
+    var(--cream);
+  color: var(--ink);
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
+}
+
+h1, h2, h3, .font-display { font-family: var(--font-display), Georgia, serif; font-weight: 500; }
+
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  background: var(--cocoa);
+  color: var(--cream);
+  padding: 0.6rem 1rem;
+  z-index: 50;
+}
+.skip-link:focus { top: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
