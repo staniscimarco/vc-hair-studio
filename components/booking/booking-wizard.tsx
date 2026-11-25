@@ -258,7 +258,6 @@ export function BookingWizard() {
         </ol>
       </TitleHero>
 
-      {state && !state.configurato ? <div className="warning-box mt-5">Le prenotazioni online apriranno a breve: intanto puoi scoprire trattamenti e orari.</div> : null}
 
       <div className="wizard-body mx-auto max-w-3xl">
         {step === 0 ? (

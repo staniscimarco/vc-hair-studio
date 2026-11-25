@@ -6,6 +6,7 @@ import { CustomerTabBar, CustomerTopNav } from "@/components/nav/customer-tab-ba
 import { InstallHint } from "@/components/pwa/install-hint";
 import { NotificationPrompt } from "@/components/pwa/notification-prompt";
 import { Splash } from "@/components/pwa/splash";
+import { PullToRefresh } from "@/components/pwa/pull-to-refresh";
 
 const lexend = Lexend({
   subsets: ["latin"],
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CustomerTabBar />
         <InstallHint />
         <NotificationPrompt />
+        <PullToRefresh />
         <Splash />
         <Toaster position="top-center" richColors />
       </body>

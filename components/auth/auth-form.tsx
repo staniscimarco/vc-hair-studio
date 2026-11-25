@@ -18,7 +18,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   const next = safeNext(params.get("prossimo"), mode === "registrazione" ? "/" : "/");
   const [pending, setPending] = useState(false);
   const [mfa, setMfa] = useState<{ factorId: string; challengeId: string } | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(params.get("errore") ?? "");
 
   async function onSubmit(formData: FormData) {
     setPending(true);

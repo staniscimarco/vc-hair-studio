@@ -4,6 +4,16 @@ import { safeNext } from "@/lib/security/http";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 
 export async function proxy(request: NextRequest) {
+  // Se Supabase rimanda alla pagina iniziale con il codice di Google (Site URL), completa comunque l'accesso.
+  const oauthCode = request.nextUrl.searchParams.get("code");
+  if (oauthCode && request.nextUrl.pathname !== "/auth/callback" && !request.nextUrl.pathname.startsWith("/api")) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = "/auth/callback";
+    callback.search = "";
+    callback.searchParams.set("code", oauthCode);
+    callback.searchParams.set("next", safeNext(request.nextUrl.searchParams.get("next") ?? request.nextUrl.pathname, "/"));
+    return NextResponse.redirect(callback);
+  }
   const url = supabaseUrl();
   const key = supabasePublishableKey();
   if (!url || !key) return NextResponse.next();

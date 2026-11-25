@@ -14,9 +14,15 @@ import { enablePush } from "@/lib/push-client";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const [complete, setComplete] = useState<{ next: string } | null>(null);
   const [profile, setProfile] = useState({ nome: "", cognome: "", telefono: "", email: "", indirizzo: "" });
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("completa")) {
+      const target = params.get("prossimo") ?? "/";
+      setComplete({ next: target.startsWith("/") && !target.startsWith("//") ? target : "/" });
+    }
     void getBrowserSupabase().then(async (supabase) => {
       if (!supabase) return;
       const { data } = await supabase.auth.getUser();
@@ -55,7 +61,10 @@ export default function ProfilePage() {
       .update({ first_name: parsed.data.nome, last_name: parsed.data.cognome, phone: parsed.data.telefono, address: fullAddress(parsed.data.indirizzo) })
       .eq("id", data.user.id);
     if (error) toast.error("Non è stato possibile aggiornare il profilo.");
-    else toast.success("Profilo aggiornato.");
+    else {
+      toast.success(complete ? "Perfetto, il tuo profilo è completo! ✨" : "Profilo aggiornato.");
+      if (complete) router.push(complete.next);
+    }
   }
 
   async function changePassword(formData: FormData) {
@@ -90,6 +99,12 @@ export default function ProfilePage() {
           {profile.email ? <span className="text-[13px] opacity-85">{profile.email}</span> : null}
         </div>
       </TitleHero>
+
+      {complete ? (
+        <div className="warning-box mt-5">
+          Benvenuta! Completa telefono e indirizzo: ci servono per confermarti l&apos;appuntamento.
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
         <form action={save} className="card grid gap-3">

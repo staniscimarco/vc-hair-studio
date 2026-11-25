@@ -25,7 +25,6 @@ const reasons = [
 export function HomeScreen() {
   const [services, setServices] = useState<Service[] | null>(null);
   const [promo, setPromo] = useState<PublicPromo | null>(null);
-  const [ready, setReady] = useState<boolean | null>(null);
   const [name, setName] = useState("");
   const [now, setNow] = useState<Date | null>(null);
   const [openDays, setOpenDays] = useState<string[] | null>(null);
@@ -36,12 +35,10 @@ export function HomeScreen() {
     void fetch("/api/stato")
       .then((response) => response.json())
       .then((body) => {
-        setReady(Boolean(body.configurato));
         setServices(body.servizi ?? []);
         setPromo(body.promozione ?? null);
       })
       .catch(() => {
-        setReady(false);
         setServices([]);
       });
     void fetch("/api/sessione")
@@ -128,33 +125,32 @@ export function HomeScreen() {
         )}
       </div>
 
-      <section aria-labelledby="servizi">
-        <SectionHead id="servizi" title="Servizi" subtitle="Come possiamo prenderci cura dei tuoi capelli?" href="/prenota" />
-        {ready === false ? (
-          <div className="warning-box mb-4">Le prenotazioni online apriranno a breve: intanto scopri i nostri trattamenti.</div>
-        ) : null}
-        {services === null ? (
-          <div className="service-tiles" aria-hidden>
-            {Array.from({ length: 4 }, (_, index) => <span key={index} className="skeleton" style={{ height: 190 }} />)}
-          </div>
-        ) : (
-          <div className="service-tiles">
-            {list.map((service, index) => (
-              <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="service-tile">
-                <span className="tile-art">
-                  <ServiceArt name={service.nome} tone={index} compact />
-                  {promoFor(promo, service.id) ? <span className="promo-ribbon">-{promo?.sconto}%</span> : null}
-                </span>
-                <span className="tile-name">{service.nome}</span>
-                <span className="tile-meta">
-                  <span><Clock size={12} /> {shortDuration(service.durataMinuti)}</span>
-                  <Price cents={service.prezzoCentesimi} promo={promo} serviceId={service.id} className="tile-price" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+      {services === null || list.length > 0 ? (
+        <section aria-labelledby="servizi">
+          <SectionHead id="servizi" title="Servizi" subtitle="Come possiamo prenderci cura dei tuoi capelli?" href="/prenota" />
+          {services === null ? (
+            <div className="service-tiles" aria-hidden>
+              {Array.from({ length: 4 }, (_, index) => <span key={index} className="skeleton" style={{ height: 190 }} />)}
+            </div>
+          ) : (
+            <div className="service-tiles">
+              {list.map((service, index) => (
+                <Link key={service.id} href={`/prenota?servizio=${service.id}`} className="service-tile">
+                  <span className="tile-art">
+                    <ServiceArt name={service.nome} tone={index} compact />
+                    {promoFor(promo, service.id) ? <span className="promo-ribbon">-{promo?.sconto}%</span> : null}
+                  </span>
+                  <span className="tile-name">{service.nome}</span>
+                  <span className="tile-meta">
+                    <span><Clock size={12} /> {shortDuration(service.durataMinuti)}</span>
+                    <Price cents={service.prezzoCentesimi} promo={promo} serviceId={service.id} className="tile-price" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section aria-labelledby="in-evidenza">
         <SectionHead id="in-evidenza" title="I più amati" subtitle="Scelti dalle nostre clienti, ogni settimana" href="/prenota" />
