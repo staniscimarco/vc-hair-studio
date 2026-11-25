@@ -7,6 +7,7 @@ import { assertSlotFree, loadService, loadSettings, type ServiceRecord } from "@
 import { enqueueAppointmentNotice, notifyCustomerDecision } from "@/lib/server/notices";
 import { ensureDatabase } from "@/lib/server/schema";
 import { currentPromotion, discountedPrice, promotionApplies } from "@/lib/server/promotions";
+import { isApproved } from "@/lib/server/signups";
 
 /** Se attivo, le prenotazioni online restano "in attesa" finché il salone non le accetta. */
 export async function approvalRequired() {
@@ -88,6 +89,9 @@ export async function createOnlineBooking(input: {
   const start = new Date(input.startIso);
   if (Number.isNaN(start.getTime())) throw new HttpError(400, "L'orario indicato non è valido.");
   await assertSlotFree({ service, start });
+  if (!(await isApproved(input.userId))) {
+    throw new HttpError(403, "Il tuo profilo è in attesa di approvazione da parte del salone. Ti avviseremo appena sarà attivo.");
+  }
   const customer = await customerForUser(input.userId);
   const [pending, promo] = await Promise.all([approvalRequired(), currentPromotion()]);
   const discounted = promotionApplies(promo, service.id);

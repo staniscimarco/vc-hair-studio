@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/security/http";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
 import { adminProfileIds } from "@/lib/server/admins";
+import { approveProfile, deleteRegistration } from "@/lib/server/signups";
+import { ensureDatabase } from "@/lib/server/schema";
 
 export async function GET(request: Request) {
   try {
+    await ensureDatabase().catch(() => undefined);
     const { admin } = await requireAdmin();
     const q = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
     const [{ data, error }, admins] = await Promise.all([
-      admin.from("customers").select("*").order("last_name").limit(500),
+      admin.from("customers").select("*").order("created_at", { ascending: false }).limit(500),
       adminProfileIds(admin),
     ]);
     if (error) return NextResponse.json({ errore: "Non è stato possibile leggere le clienti." }, { status: 500 });
@@ -17,7 +20,18 @@ export async function GET(request: Request) {
       const haystack = `${row.first_name} ${row.last_name} ${row.email ?? ""} ${row.phone ?? ""}`.toLowerCase();
       return !q || haystack.includes(q);
     });
-    return NextResponse.json({ clienti: rows });
+    // Stato di approvazione dei profili registrati online.
+    const profileIds = rows.map((row) => row.profile_id).filter(Boolean) as string[];
+    const approvals = new Map<string, string | null>();
+    if (profileIds.length) {
+      const profiles = await admin.from("profiles").select("id, approved_at").in("id", profileIds);
+      if (!profiles.error) for (const row of profiles.data ?? []) approvals.set(String(row.id), (row as { approved_at?: string | null }).approved_at ?? null);
+    }
+    const clienti = rows.map((row) => ({
+      ...row,
+      in_attesa: Boolean(row.profile_id && approvals.has(String(row.profile_id)) && !approvals.get(String(row.profile_id))),
+    }));
+    return NextResponse.json({ clienti });
   } catch (error) {
     return jsonError(error);
   }
@@ -28,6 +42,13 @@ export async function PATCH(request: Request) {
     if (!sameOrigin(request)) return NextResponse.json({ errore: "Richiesta non consentita." }, { status: 403 });
     const { admin } = await requireAdmin();
     const body = await request.json();
+    if (body.azione === "approva" && body.id) {
+      const customer = await admin.from("customers").select("profile_id").eq("id", body.id).maybeSingle();
+      if (!customer.data?.profile_id) return NextResponse.json({ errore: "Questa scheda non ha un account da approvare." }, { status: 400 });
+      const ok = await approveProfile(String(customer.data.profile_id));
+      if (!ok) return NextResponse.json({ errore: "Profilo già approvato o non trovato." }, { status: 409 });
+      return NextResponse.json({ ok: true });
+    }
     if (body.azione === "anonimizza") {
       const { error } = await admin.from("customers").update({
         first_name: "Cliente",
@@ -56,6 +77,21 @@ export async function PATCH(request: Request) {
       archived_at: body.archiviata ? new Date().toISOString() : null,
     }).eq("id", body.id);
     if (error) return NextResponse.json({ errore: "Non è stato possibile aggiornare la cliente." }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
+/** Elimina una registrazione (anche Google): la persona potrà registrarsi di nuovo. */
+export async function DELETE(request: Request) {
+  try {
+    if (!sameOrigin(request)) return NextResponse.json({ errore: "Richiesta non consentita." }, { status: 403 });
+    await requireAdmin();
+    const id = new URL(request.url).searchParams.get("id");
+    if (!id) return NextResponse.json({ errore: "Cliente non indicata." }, { status: 400 });
+    const result = await deleteRegistration(id);
+    if (!result.ok) return NextResponse.json({ errore: result.errore }, { status: 400 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error);

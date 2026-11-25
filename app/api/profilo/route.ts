@@ -4,6 +4,7 @@ import { jsonError, requireUser } from "@/lib/server/guard";
 import { ensureDatabase } from "@/lib/server/schema";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { fullAddress, profileSchema, streetOf } from "@/lib/validators";
+import { notifyPendingSignups } from "@/lib/server/signups";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,7 @@ export async function PUT(request: Request) {
         address: values.address,
       });
     }
+    await notifyPendingSignups().catch(() => undefined);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error);

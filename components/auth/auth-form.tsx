@@ -102,7 +102,10 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
         },
       });
       if (error) toast.error("Non è stato possibile completare la registrazione.");
-      else setMessage("Controlla la tua casella di posta per confermare l'indirizzo, poi accedi.");
+      else {
+        void fetch("/api/registrazione", { method: "POST" }).catch(() => undefined);
+        setMessage("Grazie! Conferma il tuo indirizzo dal link che ti abbiamo inviato via e-mail. Il salone approverà il tuo profilo a breve: ti avviseremo appena potrai prenotare.");
+      }
     }
     if (mode === "recupero") {
       const parsed = recoverySchema.safeParse({ email: formData.get("email") });

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/security/http";
+import { ensureDatabase } from "@/lib/server/schema";
+import { notifyPendingSignups } from "@/lib/server/signups";
 
 /**
  * Ritorno da Google o dal link di conferma e-mail: crea la sessione.
@@ -23,6 +25,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/accesso?errore=${encodeURIComponent("Il collegamento è scaduto o non è valido. Accedi di nuovo.")}`, url.origin));
   }
 
+  await ensureDatabase().catch(() => undefined);
+  // Nuova registrazione (anche con Google): l'amministratrice riceve subito la notifica.
+  await notifyPendingSignups().catch(() => undefined);
   const profile = await supabase.from("profiles").select("role, phone, address").eq("id", data.user.id).maybeSingle();
   const row = profile.data as { role?: string; phone?: string; address?: string } | null;
   if (row?.role === "admin") return NextResponse.redirect(new URL(next === "/" ? "/admin" : next, url.origin));

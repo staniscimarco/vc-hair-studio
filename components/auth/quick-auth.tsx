@@ -79,6 +79,8 @@ export function QuickAuth({ next, onDone }: { next: string; onDone: (name: strin
       toast.error("Non è stato possibile completare la registrazione.");
       return;
     }
+    // Il salone riceve la notifica della nuova registrazione da approvare.
+    void fetch("/api/registrazione", { method: "POST" }).catch(() => undefined);
     if (data.session) {
       toast.success("Profilo creato.");
       onDone(parsed.data.nome);

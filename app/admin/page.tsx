@@ -19,6 +19,7 @@ import {
   Settings,
   Sparkles,
   Tag,
+  UserPlus,
   UserRound,
   Users,
   XCircle,
@@ -62,6 +63,7 @@ export default function AdminHome() {
   const [name, setName] = useState("");
   const [now, setNow] = useState<Date | null>(null);
   const [requests, setRequests] = useState<Request[]>([]);
+  const [signups, setSignups] = useState(0);
 
   function reload() {
     void fetch("/api/admin/panoramica").then(async (response) => {
@@ -69,6 +71,10 @@ export default function AdminHome() {
       if (!response.ok) setError(body.errore);
       else setStats(body);
     });
+    void fetch("/api/admin/clienti")
+      .then((response) => response.json())
+      .then((body) => setSignups(((body.clienti ?? []) as { in_attesa?: boolean; archived_at?: string | null }[]).filter((row) => row.in_attesa && !row.archived_at).length))
+      .catch(() => undefined);
     void fetch("/api/admin/richieste")
       .then((response) => response.json())
       .then((body) => setRequests(body.richieste ?? []))
@@ -117,6 +123,17 @@ export default function AdminHome() {
           </>
         }
       />
+
+      {signups ? (
+        <Link href="/admin/clienti?stato=attesa" className="pick-card mt-6" style={{ padding: 14, background: "#fff6e0" }}>
+          <span className="tile-icon is-primary"><UserPlus size={19} /></span>
+          <span className="pick-main">
+            <h3>{signups === 1 ? "1 nuova registrazione da approvare" : `${signups} nuove registrazioni da approvare`}</h3>
+            <p>Approva chi conosci o elimina lo spam.</p>
+          </span>
+          <span className="round-arrow" aria-hidden><ArrowUpRight size={16} /></span>
+        </Link>
+      ) : null}
 
       {requests.length ? (
         <section aria-labelledby="richieste">

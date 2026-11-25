@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<{ message: string; field: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -27,6 +28,10 @@ export default function ProfilePage() {
       const target = params.get("prossimo") ?? "/";
       setComplete({ next: target.startsWith("/") && !target.startsWith("//") ? target : "/" });
     }
+    void fetch("/api/sessione")
+      .then((response) => response.json())
+      .then((body) => setPendingApproval(body.autenticato && body.approvato === false))
+      .catch(() => undefined);
     void fetch("/api/profilo").then(async (response) => {
       if (response.status === 401) {
         router.push("/accesso?prossimo=/profilo");
@@ -112,6 +117,11 @@ export default function ProfilePage() {
         </div>
       </TitleHero>
 
+      {pendingApproval && !complete ? (
+        <div className="warning-box mt-5">
+          Il tuo profilo è in attesa di approvazione da parte del salone. Ti avviseremo con una notifica appena potrai prenotare.
+        </div>
+      ) : null}
       {complete ? (
         <div className="warning-box mt-5">
           Benvenuta! Completa telefono e indirizzo: ci servono per confermarti l&apos;appuntamento.

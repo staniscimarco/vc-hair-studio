@@ -46,7 +46,7 @@ export function BookingWizard() {
   const [day, setDay] = useState<string | null>(null);
   const [slots, setSlots] = useState<{ inizio: string; etichetta: string }[]>([]);
   const [slot, setSlot] = useState<string | null>(null);
-  const [session, setSession] = useState<{ ok: boolean; nome: string } | null>(null);
+  const [session, setSession] = useState<{ ok: boolean; nome: string; approvato: boolean } | null>(null);
   const [done, setDone] = useState<{ codice: string; token: string; inizio: string; stato: string } | null>(null);
   const [pushOn, setPushOn] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -86,8 +86,8 @@ export function BookingWizard() {
     void fetch("/api/stato").then((response) => response.json()).then(setState).catch(() => setState({ configurato: false, prenotazioniAttive: false, servizi: [] }));
     void fetch("/api/sessione")
       .then((response) => response.json())
-      .then((body) => setSession({ ok: Boolean(body.autenticato), nome: body.nome ?? "" }))
-      .catch(() => setSession({ ok: false, nome: "" }));
+      .then((body) => setSession({ ok: Boolean(body.autenticato), nome: body.nome ?? "", approvato: body.approvato !== false }))
+      .catch(() => setSession({ ok: false, nome: "", approvato: true }));
   }, [params]);
 
   // Riprende la prenotazione dal punto giusto (anche al ritorno da Google o dalla conferma e-mail).
@@ -181,7 +181,7 @@ export function BookingWizard() {
     setBusy(false);
     if (!response.ok) {
       if (response.status === 401) {
-        setSession({ ok: false, nome: "" });
+        setSession({ ok: false, nome: "", approvato: true });
         go(2);
         return;
       }
@@ -365,7 +365,11 @@ export function BookingWizard() {
               <QuickAuth
                 next="/prenota"
                 onDone={(nome) => {
-                  setSession({ ok: true, nome });
+                  setSession({ ok: true, nome, approvato: true });
+                  void fetch("/api/sessione")
+                    .then((response) => response.json())
+                    .then((body) => setSession({ ok: true, nome: body.nome || nome, approvato: body.approvato !== false }))
+                    .catch(() => undefined);
                   go(3);
                 }}
               />
@@ -411,6 +415,12 @@ export function BookingWizard() {
                 ? "Invii una richiesta: l'orario resta riservato per te e il salone ti conferma con una notifica. Paghi in salone, a fine trattamento."
                 : "Il pagamento verrà effettuato direttamente in salone al termine del trattamento."}
             </p>
+            {session?.ok && !session.approvato ? (
+              <div className="warning-box mt-3">
+                <AlertTriangle size={18} className="mt-0.5 flex-none" />
+                <span>Il tuo profilo è in attesa di approvazione da parte del salone (lo facciamo per evitare lo spam). Ti avviseremo con una notifica appena potrai prenotare.</span>
+              </div>
+            ) : null}
             {state && !state.prenotazioniAttive ? (
               <div className="warning-box mt-3">
                 <AlertTriangle size={18} className="mt-0.5 flex-none" />
@@ -419,7 +429,7 @@ export function BookingWizard() {
             ) : null}
             <div className="wizard-bar">
               <button className="btn btn-soft" type="button" onClick={back}>Indietro</button>
-              <button className="btn btn-primary" type="button" disabled={busy || !state?.prenotazioniAttive} onClick={() => void confirm()}>
+              <button className="btn btn-primary" type="button" disabled={busy || !state?.prenotazioniAttive || (session?.ok && !session.approvato)} onClick={() => void confirm()}>
                 {busy ? "Attendere…" : state?.approvazione ? "Invia richiesta" : "Conferma"}
               </button>
             </div>

@@ -4,6 +4,7 @@ import { formatDateLong, formatTime } from "@/lib/format";
 import { ensureDatabase } from "@/lib/server/schema";
 import { dailyAvailabilityBroadcast } from "@/lib/server/daily";
 import { dispatchEmail, dispatchPush } from "@/lib/server/dispatch";
+import { notifyPendingSignups } from "@/lib/server/signups";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
   const admin = createAdminSupabase();
   if (!admin) return NextResponse.json({ saltato: true, motivo: "Archivio non configurato." });
   await ensureDatabase().catch(() => undefined);
+  await notifyPendingSignups().catch(() => undefined);
   const push = await dispatchPush(admin);
   const email = await dispatchEmail(admin);
   const reminders = await queueReminders(admin);

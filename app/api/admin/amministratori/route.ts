@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sameOrigin } from "@/lib/security/http";
 import { jsonError, requireAdmin } from "@/lib/server/guard";
 import { passwordSchema } from "@/lib/validators";
+import { ensureDatabase } from "@/lib/server/schema";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     if (!sameOrigin(request)) return NextResponse.json({ errore: "Richiesta non consentita." }, { status: 403 });
+    await ensureDatabase().catch(() => undefined);
     const { admin } = await requireAdmin();
     const parsed = createSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ errore: parsed.error.issues[0]?.message ?? "Controlla i dati." }, { status: 400 });
@@ -62,7 +64,8 @@ export async function POST(request: Request) {
     if (!profile.data) {
       await admin.from("profiles").insert({ id: userId, role: "admin", first_name: firstName, last_name: rest.join(" "), email: parsed.data.email });
     } else {
-      const { error } = await admin.from("profiles").update({ role: "admin", first_name: firstName, last_name: rest.join(" ") }).eq("id", userId);
+      const now = new Date().toISOString();
+      const { error } = await admin.from("profiles").update({ role: "admin", first_name: firstName, last_name: rest.join(" "), approved_at: now, signup_notified_at: now }).eq("id", userId);
       if (error) return NextResponse.json({ errore: "Accesso creato, ma non è stato possibile renderlo amministratore." }, { status: 500 });
     }
     return NextResponse.json({ ok: true });

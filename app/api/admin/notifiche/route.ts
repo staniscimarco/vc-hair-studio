@@ -20,7 +20,7 @@ export async function GET() {
     const { admin, user } = await requireAdmin();
     const [devices, history, customers, broadcasts, settings] = await Promise.all([
       admin.from("push_subscriptions").select("id, endpoint, user_agent, created_at, disabled_at, fail_count").eq("profile_id", user.id),
-      admin.from("notifications").select("id, title, body, url, read_at, created_at").eq("event", "created").order("created_at", { ascending: false }).limit(50),
+      admin.from("notifications").select("id, title, body, url, read_at, created_at").in("event", ["created", "signup"]).order("created_at", { ascending: false }).limit(50),
       subscriptionsFor(admin, "customer"),
       admin.from("broadcasts").select("id, kind, title, body, recipients, sent, created_at").order("created_at", { ascending: false }).limit(20),
       admin.from("salon_settings").select("daily_push_enabled, daily_push_hour, require_approval").eq("id", 1).maybeSingle(),

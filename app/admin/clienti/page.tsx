@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, Download, EyeOff, MessageCircle, Phone, Users } from "lucide-react";
+import { Archive, ArchiveRestore, Download, EyeOff, MessageCircle, Phone, Trash2, UserCheck, Users } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { notifyLive } from "@/lib/live";
 import { SearchBar, SectionHead, TitleHero } from "@/components/ui/app-header";
 
 type Customer = {
@@ -13,12 +15,15 @@ type Customer = {
   phone: string | null;
   notes: string | null;
   archived_at: string | null;
+  in_attesa?: boolean;
 };
 
 export default function CustomersPage() {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Customer[] | null>(null);
-  const [filter, setFilter] = useState<"attive" | "archiviate">("attive");
+  const [filter, setFilter] = useState<"attesa" | "attive" | "archiviate">("attive");
+  const [ask, setAsk] = useState<Customer | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function load(q = query) {
     const response = await fetch(`/api/admin/clienti?q=${encodeURIComponent(q)}`);
@@ -28,7 +33,9 @@ export default function CustomersPage() {
   }
 
   useEffect(() => {
-    const initial = new URLSearchParams(window.location.search).get("q") ?? "";
+    const params = new URLSearchParams(window.location.search);
+    const initial = params.get("q") ?? "";
+    if (params.get("stato") === "attesa") setFilter("attesa");
     setQuery(initial);
     void (async () => {
       const response = await fetch(`/api/admin/clienti?q=${encodeURIComponent(initial)}`);
@@ -45,9 +52,30 @@ export default function CustomersPage() {
     const key = (row.phone ?? "").replace(/\D/g, "");
     if (key) phones.set(key, (phones.get(key) ?? 0) + 1);
   }
-  const active = (rows ?? []).filter((row) => !row.archived_at);
+  const pending = (rows ?? []).filter((row) => row.in_attesa && !row.archived_at);
+  const active = (rows ?? []).filter((row) => !row.archived_at && !row.in_attesa);
   const archived = (rows ?? []).filter((row) => row.archived_at);
-  const shown = filter === "attive" ? active : archived;
+  const shown = filter === "attesa" ? pending : filter === "attive" ? active : archived;
+
+  async function approve(row: Customer) {
+    setBusy(row.id);
+    const response = await fetch("/api/admin/clienti", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: row.id, azione: "approva" }) });
+    const body = await response.json().catch(() => ({}));
+    setBusy(null);
+    if (!response.ok) return toast.error(body.errore ?? "Approvazione non riuscita.");
+    toast.success(`${row.first_name} è stata approvata: ora può prenotare.`);
+    notifyLive();
+    await load();
+  }
+
+  async function remove(row: Customer) {
+    const response = await fetch(`/api/admin/clienti?id=${row.id}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return toast.error(body.errore ?? "Eliminazione non riuscita.");
+    toast.success("Cliente eliminata: potrà registrarsi di nuovo.");
+    notifyLive();
+    await load();
+  }
 
   return (
     <section>
@@ -64,6 +92,9 @@ export default function CustomersPage() {
       </TitleHero>
 
       <div className="chips mt-5" role="tablist" aria-label="Filtra clienti">
+        <button role="tab" aria-selected={filter === "attesa"} type="button" className={`chip ${filter === "attesa" ? "is-on" : ""}`} onClick={() => setFilter("attesa")}>
+          Da approvare <span className="count" style={pending.length ? { background: "var(--heart)", color: "#fff" } : undefined}>{pending.length}</span>
+        </button>
         <button role="tab" aria-selected={filter === "attive"} type="button" className={`chip ${filter === "attive" ? "is-on" : ""}`} onClick={() => setFilter("attive")}>
           Tutte le clienti <span className="count">{active.length}</span>
         </button>
@@ -72,11 +103,16 @@ export default function CustomersPage() {
         </button>
       </div>
 
-      <SectionHead title={filter === "attive" ? "Schede clienti" : "Archivio"} href="/admin/appuntamenti" linkLabel="Nuovo appuntamento" />
+      <SectionHead
+        title={filter === "attesa" ? "Nuove registrazioni" : filter === "attive" ? "Schede clienti" : "Archivio"}
+        subtitle={filter === "attesa" ? "Approva chi conosci, elimina lo spam: chi elimini potrà registrarsi di nuovo." : undefined}
+        href={filter === "attesa" ? undefined : "/admin/appuntamenti"}
+        linkLabel="Nuovo appuntamento"
+      />
 
       {!rows ? <div className="grid gap-3 lg:grid-cols-2">{[0, 1, 2, 3].map((index) => <div key={index} className="skeleton" style={{ height: 120 }} />)}</div> : null}
       {rows && shown.length === 0 ? (
-        <div className="empty-state"><span className="tile-icon"><Users size={20} /></span>Nessuna cliente trovata.</div>
+        <div className="empty-state"><span className="tile-icon"><Users size={20} /></span>{filter === "attesa" ? "Nessuna registrazione da approvare." : "Nessuna cliente trovata."}</div>
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -89,11 +125,21 @@ export default function CustomersPage() {
               <div className="flex items-center gap-3">
                 <span className="tile-icon is-primary" style={{ width: 52, height: 52, fontWeight: 600 }}>{initials || "?"}</span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="m-0 truncate text-base">{row.first_name} {row.last_name}</h3>
+                  <h3 className="m-0 truncate text-base">{row.first_name} {row.last_name} {row.in_attesa ? <span className="status-pill is-pending ml-1 align-middle">Da approvare</span> : null}</h3>
                   <p className="m-0 truncate text-[13px] text-[#3d3b47]">{[row.email, row.phone].filter(Boolean).join(" · ") || "Nessun contatto"}</p>
                   {digits && phones.get(digits)! > 1 ? <span className="status-pill is-cancelled mt-1">Possibile duplicato per telefono</span> : null}
                 </div>
               </div>
+              {row.in_attesa ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button className="btn btn-primary btn-sm" type="button" disabled={busy === row.id} onClick={() => void approve(row)}>
+                    <UserCheck size={15} /> {busy === row.id ? "…" : "Approva"}
+                  </button>
+                  <button className="btn btn-danger btn-sm" type="button" onClick={() => setAsk(row)}>
+                    <Trash2 size={15} /> Elimina
+                  </button>
+                </div>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 {row.phone ? <a className="btn btn-primary btn-xs" href={`tel:${row.phone}`}><Phone size={13} /> Chiama</a> : null}
                 {wa ? <a className="btn btn-accent btn-xs" href={wa} target="_blank" rel="noreferrer"><MessageCircle size={13} /> WhatsApp</a> : null}
@@ -108,11 +154,28 @@ export default function CustomersPage() {
                   toast.success("Scheda anonimizzata.");
                   await load();
                 }}><EyeOff size={13} /> Anonimizza</button>
+                {!row.in_attesa ? (
+                  <button className="btn btn-white btn-xs" type="button" style={{ color: "var(--danger)" }} onClick={() => setAsk(row)}><Trash2 size={13} /> Elimina</button>
+                ) : null}
               </div>
             </article>
           );
         })}
       </div>
+      <ConfirmDialog
+        open={Boolean(ask)}
+        tone="danger"
+        icon={<Trash2 size={28} />}
+        title="Eliminare la cliente?"
+        message={ask ? `${ask.first_name} ${ask.last_name}: l'account (anche quello Google) e la scheda verranno cancellati. Potrà registrarsi di nuovo da zero.` : ""}
+        confirmLabel="Elimina"
+        cancelLabel="Indietro"
+        onCancel={() => setAsk(null)}
+        onConfirm={async () => {
+          if (ask) await remove(ask);
+          setAsk(null);
+        }}
+      />
     </section>
   );
 }
