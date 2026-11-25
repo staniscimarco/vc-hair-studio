@@ -1,14 +1,16 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 
 export async function createServerSupabase() {
-  if (!isSupabaseConfigured()) return null;
+  const url = supabaseUrl();
+  const key = supabasePublishableKey();
+  if (!url || !key || !isSupabaseConfigured()) return null;
   const cookieStore = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createBrowserSupabase } from "@/lib/supabase/browser";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { profileSchema } from "@/lib/validators";
 
 export default function ProfilePage() {
@@ -11,9 +11,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState({ nome: "", cognome: "", telefono: "", email: "" });
 
   useEffect(() => {
-    const supabase = createBrowserSupabase();
-    if (!supabase) return;
-    void supabase.auth.getUser().then(async ({ data }) => {
+    void getBrowserSupabase().then(async (supabase) => {
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser();
       if (!data.user) {
         router.push("/accesso?prossimo=/profilo");
         return;
@@ -29,7 +29,7 @@ export default function ProfilePage() {
   }, [router]);
 
   async function save(formData: FormData) {
-    const supabase = createBrowserSupabase();
+    const supabase = await getBrowserSupabase();
     if (!supabase) return;
     const parsed = profileSchema.safeParse({
       nome: formData.get("nome"),
@@ -51,7 +51,7 @@ export default function ProfilePage() {
   }
 
   async function changePassword(formData: FormData) {
-    const supabase = createBrowserSupabase();
+    const supabase = await getBrowserSupabase();
     if (!supabase) return;
     const { error } = await supabase.auth.updateUser({ password: String(formData.get("password") ?? "") });
     if (error) toast.error("Non è stato possibile aggiornare la parola d'ordine.");
@@ -59,7 +59,7 @@ export default function ProfilePage() {
   }
 
   async function requestDeletion() {
-    const supabase = createBrowserSupabase();
+    const supabase = await getBrowserSupabase();
     if (!supabase) return;
     const { data } = await supabase.auth.getUser();
     if (!data.user) return;
@@ -89,7 +89,7 @@ export default function ProfilePage() {
           className="underline"
           type="button"
           onClick={async () => {
-            await createBrowserSupabase()?.auth.signOut();
+            await (await getBrowserSupabase())?.auth.signOut();
             router.push("/");
             router.refresh();
           }}

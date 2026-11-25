@@ -1,12 +1,14 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isServiceRoleConfigured } from "@/lib/supabase/env";
+import { isServiceRoleConfigured, supabaseServiceRoleKey, supabaseUrl } from "@/lib/supabase/env";
 
 export function createAdminSupabase(): SupabaseClient | null {
-  if (!isServiceRoleConfigured()) return null;
+  const url = supabaseUrl();
+  const key = supabaseServiceRoleKey();
+  if (!url || !key || !isServiceRoleConfigured()) return null;
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }

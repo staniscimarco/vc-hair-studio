@@ -28,6 +28,7 @@ describe("registrazione e accesso", () => {
 
   it("valida accesso e recupero parola d'ordine", () => {
     expect(loginSchema.safeParse({ email: "maria@example.com", password: "x" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "admin", password: "x" }).success).toBe(true);
     expect(recoverySchema.safeParse({ email: "maria@example.com" }).success).toBe(true);
     expect(recoverySchema.safeParse({ email: "no" }).success).toBe(false);
   });

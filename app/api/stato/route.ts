@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { jsonError } from "@/lib/server/guard";
+import { ensureDatabase } from "@/lib/server/schema";
 import { isServiceRoleConfigured } from "@/lib/supabase/env";
 import { loadPublicServices, loadSettings } from "@/lib/server/schedule";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -12,6 +15,7 @@ export async function GET() {
         servizi: [],
       });
     }
+    await ensureDatabase();
     const [settings, services] = await Promise.all([loadSettings(), loadPublicServices()]);
     const essential = Boolean(settings.salonName) && services.length > 0;
     return NextResponse.json({

@@ -1,10 +1,23 @@
-import { createBrowserClient } from "@supabase/ssr";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+"use client";
 
-export function createBrowserSupabase() {
-  if (!isSupabaseConfigured()) return null;
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-  );
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+let pending: Promise<SupabaseClient | null> | null = null;
+
+export function getBrowserSupabase(): Promise<SupabaseClient | null> {
+  pending ??= fetch("/api/chiavi-pubbliche")
+    .then((response) => response.json())
+    .then((body: { url?: string; chiave?: string }) => {
+      if (!body.url || !body.chiave) {
+        pending = null;
+        return null;
+      }
+      return createBrowserClient(body.url, body.chiave);
+    })
+    .catch(() => {
+      pending = null;
+      return null;
+    });
+  return pending;
 }

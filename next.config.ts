@@ -26,6 +26,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  outputFileTracingIncludes: {
+    "/api/accesso": ["./supabase/migrations/0001_init.sql"],
+    "/api/stato": ["./supabase/migrations/0001_init.sql"],
+  },
   turbopack: {
     rules: {
       "*.css": {

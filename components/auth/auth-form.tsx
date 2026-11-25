@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { createBrowserSupabase } from "@/lib/supabase/browser";
+import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { safeNext } from "@/lib/security/http";
 import { loginSchema, recoverySchema, registrationSchema } from "@/lib/validators";
 
@@ -17,11 +17,6 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   const [message, setMessage] = useState("");
 
   async function onSubmit(formData: FormData) {
-    const supabase = createBrowserSupabase();
-    if (!supabase) {
-      toast.error("L'accesso non è ancora configurato.");
-      return;
-    }
     setPending(true);
     if (mode === "accesso") {
       const parsed = loginSchema.safeParse({
@@ -33,10 +28,22 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
         setPending(false);
         return;
       }
-      const { error } = await supabase.auth.signInWithPassword(parsed.data);
-      if (error) {
-        toast.error("E-mail o parola d'ordine non corrette.");
+      const response = await fetch("/api/accesso", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        toast.error(body.errore || "E-mail o parola d'ordine non corrette.");
         setPending(false);
+        return;
+      }
+      const supabase = await getBrowserSupabase();
+      if (!supabase) {
+        setPending(false);
+        router.push(body.ruolo === "admin" ? "/admin" : next);
+        router.refresh();
         return;
       }
       const level = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -50,8 +57,16 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
         setPending(false);
         return;
       }
-      router.push(next);
+      router.push(body.ruolo === "admin" ? "/admin" : next);
       router.refresh();
+      setPending(false);
+      return;
+    }
+    const supabase = await getBrowserSupabase();
+    if (!supabase) {
+      toast.error("L'accesso non è ancora configurato.");
+      setPending(false);
+      return;
     }
     if (mode === "registrazione") {
       const parsed = registrationSchema.safeParse({
@@ -114,7 +129,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
   }
 
   async function verifyMfa(formData: FormData) {
-    const supabase = createBrowserSupabase();
+    const supabase = await getBrowserSupabase();
     if (!supabase || !mfa) return;
     const { error } = await supabase.auth.mfa.verify({
       factorId: mfa.factorId,
@@ -154,7 +169,8 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
               <Field name="telefono" label="Telefono" />
             </>
           ) : null}
-          {mode !== "nuova-password" ? <Field name="email" label="E-mail" type="email" /> : null}
+          {mode === "accesso" ? <Field name="email" label="E-mail o nome utente" type="text" autoComplete="username" /> : null}
+          {mode === "registrazione" || mode === "recupero" ? <Field name="email" label="E-mail" type="email" /> : null}
           {mode !== "recupero" ? (
             <Field name="password" label="Parola d'ordine" type="password" autoComplete={mode === "accesso" ? "current-password" : "new-password"} />
           ) : null}
