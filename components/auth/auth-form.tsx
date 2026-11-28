@@ -130,7 +130,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
       const { error } = await supabase.auth.updateUser({ password });
       if (error) toast.error("Non è stato possibile aggiornare la password.");
       else {
-        toast.success("password aggiornata.");
+        toast.success("Password aggiornata.");
         router.push("/profilo");
       }
     }
@@ -211,7 +211,7 @@ export function AuthForm({ mode }: { mode: "accesso" | "registrazione" | "recupe
               {mode === "accesso" ? <Field name="email" label="E-mail o nome utente" type="text" autoComplete="username" /> : null}
               {mode === "registrazione" || mode === "recupero" ? <Field name="email" label="E-mail" type="email" /> : null}
               {mode !== "recupero" ? (
-                <Field name="password" label="password" type="password" autoComplete={mode === "accesso" ? "current-password" : "new-password"} />
+                <Field name="password" label="Password" type="password" autoComplete={mode === "accesso" ? "current-password" : "new-password"} />
               ) : null}
               {mode === "accesso" ? (
                 <Link className="justify-self-end text-[13px] font-medium text-primary-strong no-underline" href="/recupero-password">Hai dimenticato la password?</Link>

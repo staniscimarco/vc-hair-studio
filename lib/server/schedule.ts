@@ -241,6 +241,25 @@ export async function slotsForDate(
   );
 }
 
+/**
+ * Orari del giorno divisi in liberi e già prenotati da altre clienti.
+ * Pause e chiusure non compaiono: gli "occupati" mostrano solo il lavoro del salone.
+ */
+export async function slotsWithBusy(serviceId: string, date: IsoDate, options?: { ignoreAppointmentId?: string; durationMinutes?: number }) {
+  const loaded = await loadService(serviceId);
+  const service = options?.durationMinutes ? { ...loaded, durationMinutes: options.durationMinutes } : loaded;
+  const bundle = await loadBundle(date, date);
+  const start = zonedDateTime(date, 0);
+  const end = zonedDateTime(addDays(date, 1), 0);
+  if (!start || !end) return { free: [], busy: [] };
+  const appointments = await loadAppointments(new Date(start.getTime() - 6 * 3600_000), new Date(end.getTime() + 6 * 3600_000));
+  const free = getAvailableSlots(engineInput(bundle, date, service, appointments, { ignoreAppointmentId: options?.ignoreAppointmentId }));
+  const all = getAvailableSlots(engineInput(bundle, date, service, [], {}));
+  const freeKeys = new Set(free.map((slot) => slot.start.getTime()));
+  const busy = all.filter((slot) => !freeKeys.has(slot.start.getTime()));
+  return { free, busy };
+}
+
 export async function daysWithSlots(serviceId: string, month: string) {
   const bounds = monthBounds(month);
   if (!bounds) throw new HttpError(400, "Il mese indicato non è valido.");

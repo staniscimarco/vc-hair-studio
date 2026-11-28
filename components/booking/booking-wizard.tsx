@@ -45,6 +45,7 @@ export function BookingWizard() {
   const [daysReady, setDaysReady] = useState(false);
   const [day, setDay] = useState<string | null>(null);
   const [slots, setSlots] = useState<{ inizio: string; etichetta: string }[]>([]);
+  const [busySlots, setBusySlots] = useState<{ inizio: string; etichetta: string }[]>([]);
   const [slot, setSlot] = useState<string | null>(null);
   const [session, setSession] = useState<{ ok: boolean; nome: string; approvato: boolean } | null>(null);
   const [done, setDone] = useState<{ codice: string; token: string; inizio: string; stato: string } | null>(null);
@@ -131,6 +132,7 @@ export function BookingWizard() {
       .then((response) => response.json())
       .then((body) => {
         setSlots(body.orari ?? []);
+        setBusySlots(body.occupati ?? []);
         setLoadedDay(requested);
       });
   }, [serviceId, day]);
@@ -329,24 +331,36 @@ export function BookingWizard() {
             <SectionHead title="Scegli l'orario" subtitle="Quello più comodo per te: lo teniamo riservato." />
             {!day ? <div className="empty-state"><span className="tile-icon"><CalendarDays size={20} /></span>Scegli prima il giorno.</div> : null}
             {day && loadedDay !== day ? <div className="time-grid">{[0, 1, 2, 3].map((index) => <div key={index} className="skeleton" style={{ height: 44 }} />)}</div> : null}
-            {day && loadedDay === day && slots.length === 0 ? (
+            {day && loadedDay === day && slots.length === 0 && busySlots.length === 0 ? (
               <div className="empty-state">Non ci sono orari disponibili per questa giornata. Ti invitiamo a scegliere un&apos;altra data.</div>
+            ) : null}
+            {day && loadedDay === day && slots.length === 0 && busySlots.length > 0 ? (
+              <div className="empty-state mb-3">Questa giornata è al completo! Scegli un altro giorno.</div>
             ) : null}
             {day && loadedDay === day ? (
               <div className="time-grid">
-                {slots.map((item) => (
-                  <button
-                    key={item.inizio}
-                    type="button"
-                    className={`time-chip ${slot === item.inizio ? "is-on" : ""}`}
-                    onClick={() => {
-                      setSlot(item.inizio);
-                      remember({ slot: item.inizio });
-                    }}
-                  >
-                    {item.etichetta}
-                  </button>
-                ))}
+                {[...slots.map((item) => ({ ...item, busy: false })), ...busySlots.map((item) => ({ ...item, busy: true }))]
+                  .sort((a, b) => a.inizio.localeCompare(b.inizio))
+                  .map((item) =>
+                    item.busy ? (
+                      <span key={item.inizio} className="time-chip is-busy" aria-disabled="true" title="Già prenotato">
+                        {item.etichetta}
+                        <small>Occupato</small>
+                      </span>
+                    ) : (
+                      <button
+                        key={item.inizio}
+                        type="button"
+                        className={`time-chip ${slot === item.inizio ? "is-on" : ""}`}
+                        onClick={() => {
+                          setSlot(item.inizio);
+                          remember({ slot: item.inizio });
+                        }}
+                      >
+                        {item.etichetta}
+                      </button>
+                    ),
+                  )}
               </div>
             ) : null}
             <div className="wizard-bar">

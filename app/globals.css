@@ -658,6 +658,8 @@ a { color: inherit; }
 }
 .time-chip:active { transform: scale(0.96); }
 .time-chip.is-on { background: var(--primary); color: #fff; }
+.time-chip.is-busy { display: grid; place-content: center; gap: 0; line-height: 1.1; background: repeating-linear-gradient(135deg, #f3f2f6 0 6px, #ebe9f1 6px 12px); color: #a5a2b3; text-decoration: line-through; cursor: not-allowed; }
+.time-chip.is-busy small { font-size: 10px; font-weight: 600; text-decoration: none; color: #8d8a9c; }
 
 /* ---------- Card generiche ---------- */
 
@@ -1452,6 +1454,39 @@ html.is-standalone, html.is-standalone body { overscroll-behavior-y: contain; }
   border: 0 !important;
   background: transparent !important;
 }
+.address-wrap { position: relative; display: block; }
+.address-suggestions {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(20, 12, 50, 0.18), inset 0 0 0 1px var(--line);
+}
+.address-suggestions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.address-suggestions button svg { flex: 0 0 auto; color: var(--accent); }
+.address-suggestions button:hover, .address-suggestions button.is-active { background: var(--lavender-soft); }
+.address-suggestions strong { display: block; font-size: 14px; font-weight: 600; }
+.address-suggestions small { display: block; font-size: 12px; color: var(--muted); }
+main input.address-city { background: var(--lavender-soft) !important; color: var(--primary); font-weight: 600; cursor: default; }
 .address-suffix { flex: 0 0 auto; padding: 4px 10px; border-radius: 999px; background: var(--lavender); color: var(--primary); font-size: 12px; font-weight: 600; }
 
 /* ---------- Tessere servizi ---------- */

@@ -36,9 +36,9 @@ export async function GET(request: Request) {
     const soloConteggio = url.searchParams.get("conteggio") === "1";
 
     if (role === "admin") {
-      const unread = await admin.from("notifications").select("id", { count: "exact", head: true }).in("event", ["created", "signup"]).is("read_at", null);
+      const unread = await admin.from("notifications").select("id", { count: "exact", head: true }).in("event", ["created", "signup", "moved"]).is("read_at", null);
       if (soloConteggio) return NextResponse.json({ nonLette: unread.count ?? 0, ruolo: "admin" });
-      const { data } = await admin.from("notifications").select("id, title, body, url, read_at, created_at").in("event", ["created", "signup"]).order("created_at", { ascending: false }).limit(50);
+      const { data } = await admin.from("notifications").select("id, title, body, url, read_at, created_at").in("event", ["created", "signup", "moved"]).order("created_at", { ascending: false }).limit(50);
       const elementi: Item[] = (data ?? []).map((row) => ({ id: row.id, title: row.title, body: row.body, url: row.url, createdAt: row.created_at, letta: Boolean(row.read_at), tipo: "prenotazione" }));
       return NextResponse.json({ elementi, nonLette: unread.count ?? 0, ruolo: "admin" });
     }

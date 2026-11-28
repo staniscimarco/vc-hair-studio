@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLive } from "@/lib/live";
-import { CalendarDays, CalendarPlus, Clock, Plus } from "lucide-react";
+import { CalendarClock, CalendarDays, CalendarPlus, CalendarX, Clock, Plus } from "lucide-react";
+import { RescheduleSheet } from "@/components/booking/reschedule-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TIME_ZONE } from "@/lib/availability/time";
 import { formatPrice, formatTime } from "@/lib/format";
 import { HeroIconLink, SectionHead, TitleHero } from "@/components/ui/app-header";
@@ -15,6 +17,7 @@ type Row = {
   code: string;
   starts_at: string;
   ends_at: string;
+  service_id?: string;
   status: string;
   cancel_reason?: string | null;
   price_cents: number | null;
@@ -41,6 +44,8 @@ export default function AppointmentsPage() {
   const [error, setError] = useState("");
   const [clock, setClock] = useState<number | null>(null);
   const [tab, setTab] = useState<"prossimi" | "storico">("prossimi");
+  const [moving, setMoving] = useState<Row | null>(null);
+  const [askCancel, setAskCancel] = useState<string | null>(null);
 
   async function load() {
     const response = await fetch("/api/prenotazioni");
@@ -61,7 +66,6 @@ export default function AppointmentsPage() {
   useLive(() => void load());
 
   async function cancel(id: string) {
-    if (!confirm("Vuoi annullare questo appuntamento?")) return;
     const response = await fetch(`/api/prenotazioni/${id}`, { method: "DELETE" });
     const body = await response.json();
     if (!response.ok) toast.error(body.errore);
@@ -108,17 +112,38 @@ export default function AppointmentsPage() {
         <>
           <SectionHead title={tab === "prossimi" ? "Prossimi" : "Storico"} href="/prenota" linkLabel="Prenota" />
           {tab === "prossimi" ? (
-            <List rows={future} onCancel={cancel} empty="Nessun appuntamento in programma… è il momento giusto per coccolarti!" />
+            <List rows={future} onCancel={(id) => setAskCancel(id)} onMove={setMoving} empty="Nessun appuntamento in programma… è il momento giusto per coccolarti!" />
           ) : (
             <List rows={past} empty="Lo storico è ancora vuoto." />
           )}
         </>
       ) : null}
+      {moving && moving.service_id ? (
+        <RescheduleSheet
+          appointment={{ id: moving.id, serviceId: moving.service_id, serviceName: serviceName(moving), startsAt: moving.starts_at }}
+          onClose={() => setMoving(null)}
+          onDone={() => void load()}
+        />
+      ) : null}
+      <ConfirmDialog
+        open={Boolean(askCancel)}
+        tone="danger"
+        icon={<CalendarX size={28} />}
+        title="Annullare l'appuntamento?"
+        message="Se preferisci, puoi anche solo cambiare orario."
+        confirmLabel="Annulla appuntamento"
+        cancelLabel="Indietro"
+        onCancel={() => setAskCancel(null)}
+        onConfirm={async () => {
+          if (askCancel) await cancel(askCancel);
+          setAskCancel(null);
+        }}
+      />
     </section>
   );
 }
 
-function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) => void; empty: string }) {
+function List({ rows, onCancel, onMove, empty }: { rows: Row[]; onCancel?: (id: string) => void; onMove?: (row: Row) => void; empty: string }) {
   if (rows.length === 0) {
     return (
       <div className="empty-state">
@@ -161,6 +186,9 @@ function List({ rows, onCancel, empty }: { rows: Row[]; onCancel?: (id: string) 
               <a className={`btn btn-white btn-xs flex-1 ${row.status === "pending" ? "pointer-events-none opacity-50" : ""}`} href={`/api/calendario/${row.calendar_token}`}>
                 <CalendarPlus size={14} /> Aggiungi al calendario
               </a>
+              {onMove && row.service_id && (row.status === "confirmed" || row.status === "pending") ? (
+                <button type="button" className="btn btn-accent btn-xs" onClick={() => onMove(row)}><CalendarClock size={14} /> Cambia orario</button>
+              ) : null}
               {onCancel && (row.status === "confirmed" || row.status === "pending") ? (
                 <button type="button" className="btn btn-danger btn-xs" onClick={() => onCancel(row.id)}>Annulla</button>
               ) : null}

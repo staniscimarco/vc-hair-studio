@@ -141,6 +141,26 @@ export async function notifyCustomerProfile(profileId: string, payload: { title:
   await sendToSubscriptions(admin, devices.data ?? [], { ...payload, tag: appointmentId ? `appuntamento-${appointmentId}` : undefined });
 }
 
+/** Notifica all'amministratrice (centro notifiche + push immediata). */
+export async function notifyAdmin(input: { event: "moved"; title: string; body: string; url: string; appointmentId?: string }) {
+  const admin = createAdminSupabase();
+  if (!admin) return;
+  const notice = await admin
+    .from("notifications")
+    .insert({ appointment_id: input.appointmentId ?? null, event: input.event, title: input.title, body: input.body, url: input.url })
+    .select("id")
+    .single();
+  if (notice.data) {
+    await admin.from("notification_outbox").insert({
+      notification_id: notice.data.id,
+      appointment_id: input.appointmentId ?? null,
+      payload: { title: input.title, body: input.body, url: input.url, tag: input.appointmentId ? `spostato-${input.appointmentId}` : undefined },
+      status: "pending",
+    });
+  }
+  await dispatchNow();
+}
+
 export function appointmentSummary(serviceName: string, when: Date, code: string): string {
   return `${serviceName} · ${formatDate(when)} alle ${formatTime(when)} · ${code}`;
 }

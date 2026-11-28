@@ -5,6 +5,7 @@ import { ensureDatabase } from "@/lib/server/schema";
 import { dailyAvailabilityBroadcast } from "@/lib/server/daily";
 import { dispatchEmail, dispatchPush } from "@/lib/server/dispatch";
 import { notifyPendingSignups } from "@/lib/server/signups";
+import { sendHourReminders } from "@/lib/server/reminders";
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -22,7 +23,8 @@ export async function GET(request: Request) {
     inviata: false,
     motivo: error instanceof Error ? error.message : "errore",
   }));
-  return NextResponse.json({ push, email, reminders, giornaliero });
+  const promemoria = await sendHourReminders(admin).catch((error: unknown) => ({ inviati: 0, motivo: error instanceof Error ? error.message : "errore" }));
+  return NextResponse.json({ push, email, reminders, giornaliero, promemoria });
 }
 
 async function queueReminders(admin: NonNullable<ReturnType<typeof createAdminSupabase>>) {
